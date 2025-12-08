@@ -20,53 +20,29 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith(route)
   );
 
-  // Check if the route is an auth route
-  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
-
   if (isProtectedRoute) {
     // For protected routes, verify session
-    try {
-      // Get the auth cookie to verify session
-      const cookieStore = request.cookies;
-      const authCookie = cookieStore.get("sb-auth-token");
+    // Supabase SSR uses multiple cookies for auth, check for any of them
+    const cookieStore = request.cookies;
+    
+    // Supabase sets cookies like: sb-[project-ref]-auth-token, sb-[project-ref]-auth-token-code-verifier, etc
+    const hasAuthCookie = cookieStore
+      .getAll()
+      .some((cookie) => cookie.name.includes("auth"));
 
-      if (!authCookie) {
-        // No auth cookie found, redirect to login
-        const loginUrl = new URL("/login", request.url);
-        loginUrl.searchParams.set("from", pathname);
-        return NextResponse.redirect(loginUrl);
-      }
-
-      // Auth cookie exists, allow the request
-      return NextResponse.next();
-    } catch (error) {
-      // On error, redirect to login for safety
+    if (!hasAuthCookie) {
+      // No auth cookie found, redirect to login
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("from", pathname);
       return NextResponse.redirect(loginUrl);
     }
+
+    // Auth cookie exists, allow the request
+    return NextResponse.next();
   }
 
-  if (isAuthRoute) {
-    // For auth routes, check if user is already authenticated
-    try {
-      const cookieStore = request.cookies;
-      const authCookie = cookieStore.get("sb-auth-token");
-
-      if (authCookie) {
-        // User is already authenticated, redirect to dashboard
-        return NextResponse.redirect(new URL("/dashboard", request.url));
-      }
-
-      // User is not authenticated, allow access to auth pages
-      return NextResponse.next();
-    } catch (error) {
-      // On error, allow access to auth pages
-      return NextResponse.next();
-    }
-  }
-
-  // For all other routes, allow access
+  // For all other routes, allow access (including auth routes)
+  // This prevents redirect loops on login/signup pages
   return NextResponse.next();
 }
 

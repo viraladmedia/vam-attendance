@@ -47,16 +47,7 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // Redirect HTTP to HTTPS in production
-  async redirects() {
-    return [
-      {
-        source: "/:path*",
-        destination: "/:path*",
-        permanent: true,
-      },
-    ];
-  },
+
 };
 
 export default nextConfig;
