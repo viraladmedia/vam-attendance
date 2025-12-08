@@ -13,7 +13,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader, Plus, Search, Check, X, Clock } from "lucide-react";
+import { Loader, Plus, Search, Check, X, Clock, Pencil, Trash2 } from "lucide-react";
+import { getBrowserSupabase } from "@/lib/supabase/client";
+import {
+  ResponsiveContainer,
+  BarChart as RBarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  Bar,
+} from "recharts";
 import {
   getAllSessions,
   getSessionAttendance,
@@ -21,290 +32,47 @@ import {
   recordAttendance,
 } from "@/lib/supabase/database";
 
-export default function AttendancePage() {
-  const [sessions, setSessions] = React.useState<any[]>([]);
-  const [students, setStudents] = React.useState<any[]>([]);
-  const [selectedSession, setSelectedSession] = React.useState<string>("");
-  const [attendanceRecords, setAttendanceRecords] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = React.useState("");
-  const [saving, setSaving] = React.useState(false);
+// Type definitions
+type TabKey = "overview" | "teachers" | "students" | "sessions";
+type Status = "present" | "absent" | "late";
 
-  // Fetch initial data
-  React.useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [sessionsData, studentsData] = await Promise.all([
-          getAllSessions(),
-          getAllStudents(),
-        ]);
-
-        setSessions(sessionsData || []);
-        setStudents(studentsData || []);
-
-        if (sessionsData && sessionsData.length > 0) {
-          setSelectedSession(sessionsData[0].id);
-        }
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch data"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  // Fetch attendance records when session changes
-  React.useEffect(() => {
-    const fetchAttendance = async () => {
-      if (!selectedSession) return;
-
-      try {
-        setLoading(true);
-        const records = await getSessionAttendance(selectedSession);
-        setAttendanceRecords(records || []);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch attendance"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAttendance();
-  }, [selectedSession]);
-
-  // Handle marking attendance
-  const handleMarkAttendance = async (
-    studentId: string,
-    status: "present" | "absent" | "late"
-  ) => {
-    if (!selectedSession) return;
-
-    try {
-      setSaving(true);
-
-      const existingRecord = attendanceRecords.find(
-        (r) => r.student_id === studentId
-      );
-
-      if (existingRecord) {
-        // Update existing record
-        await recordAttendance(
-          {
-            session_id: selectedSession,
-            student_id: studentId,
-            status,
-            notes: "",
-          },
-          existingRecord.id
-        );
-      } else {
-        // Create new record
-        await recordAttendance({
-          session_id: selectedSession,
-          student_id: studentId,
-          status,
-          notes: "",
-        });
-      }
-
-      // Refresh attendance records
-      const records = await getSessionAttendance(selectedSession);
-      setAttendanceRecords(records || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save attendance");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Get current session
-  const currentSession = sessions.find((s) => s.id === selectedSession);
-
-  // Filter students by search
-  const filteredStudents = students.filter((s) =>
-    s.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Get attendance status for student
-  const getAttendanceStatus = (studentId: string) => {
-    return attendanceRecords.find((r) => r.student_id === studentId)?.status;
-  };
-
-  if (loading && sessions.length === 0) {
-    return (
-      <div className="w-full">
-        <TopBar subtitle="Attendance" title="Record Attendance" />
-        <div className="flex items-center justify-center py-12">
-          <Loader className="h-8 w-8 animate-spin text-fuchsia-600" />
-          <p className="ml-3 text-slate-600">Loading attendance data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-full">
-      <TopBar subtitle="Attendance" title="Record Attendance" />
-
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-800">
-            <span className="font-semibold">Error:</span> {error}
-          </p>
-        </div>
-      )}
-
-      {/* Session Selection */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Select Session</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {sessions.length > 0 ? (
-            <Select value={selectedSession} onValueChange={setSelectedSession}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a session" />
-              </SelectTrigger>
-              <SelectContent>
-                {sessions.map((session) => (
-                  <SelectItem key={session.id} value={session.id}>
-                    {session.title} - {new Date(session.starts_at).toLocaleDateString()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <p className="text-slate-600">No sessions available. Create one first.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Session Info & Student List */}
-      {currentSession && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle>{currentSession.title}</CardTitle>
-                <p className="text-sm text-slate-600 mt-1">
-                  {new Date(currentSession.starts_at).toLocaleString()}
-                </p>
-                {currentSession.description && (
-                  <p className="text-sm text-slate-500 mt-1">
-                    {currentSession.description}
-                  </p>
-                )}
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-medium text-slate-900">
-                  {attendanceRecords.length} / {filteredStudents.length} marked
-                </p>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent>
-            {/* Search */}
-            <div className="mb-4 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="Search students..."
-                className="pl-9"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            {/* Students List */}
-            {filteredStudents.length > 0 ? (
-              <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                {filteredStudents.map((student) => {
-                  const status = getAttendanceStatus(student.id);
-
-                  return (
-                    <div
-                      key={student.id}
-                      className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition"
-                    >
-                      <div className="flex-1">
-                        <p className="font-medium text-slate-900">
-                          {student.name}
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          {student.email}
-                        </p>
-                      </div>
-
-                      {/* Status Buttons */}
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() =>
-                            handleMarkAttendance(student.id, "present")
-                          }
-                          disabled={saving}
-                          className={`p-2 rounded-lg transition ${
-                            status === "present"
-                              ? "bg-green-100 text-green-600 border-green-300"
-                              : "border border-slate-300 text-slate-600 hover:bg-green-50"
-                          }`}
-                          title="Mark Present"
-                        >
-                          <Check className="h-4 w-4" />
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            handleMarkAttendance(student.id, "late")
-                          }
-                          disabled={saving}
-                          className={`p-2 rounded-lg transition ${
-                            status === "late"
-                              ? "bg-yellow-100 text-yellow-600 border-yellow-300"
-                              : "border border-slate-300 text-slate-600 hover:bg-yellow-50"
-                          }`}
-                          title="Mark Late"
-                        >
-                          <Clock className="h-4 w-4" />
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            handleMarkAttendance(student.id, "absent")
-                          }
-                          disabled={saving}
-                          className={`p-2 rounded-lg transition ${
-                            status === "absent"
-                              ? "bg-red-100 text-red-600 border-red-300"
-                              : "border border-slate-300 text-slate-600 hover:bg-red-50"
-                          }`}
-                          title="Mark Absent"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-slate-600">No students found</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
+interface Teacher {
+  id: string;
+  name: string;
+  email: string;
+  created_at: string;
 }
+
+interface Student {
+  id: string;
+  name: string;
+  email: string;
+  program: string;
+  duration_weeks: number;
+  sessions_per_week: number;
+  class_name: string;
+  teacher_id: string;
+  created_at: string;
+}
+
+interface Session {
+  id: string;
+  teacher_id: string;
+  title: string;
+  starts_at: string;
+  description?: string;
+  created_at: string;
+}
+
+interface Attendance {
+  id: string;
+  session_id: string;
+  student_id: string;
+  status: Status;
+  created_at: string;
+}
+
+// Utility functions
 const toLocalDT = (iso: string) => {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -312,13 +80,14 @@ const toLocalDT = (iso: string) => {
     d.getDate()
   )}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
+
 const byId = <T extends { id: string }>(arr: T[]) => {
   const m = new Map<string, T>();
   arr.forEach((x) => m.set(x.id, x));
   return m;
 };
 
-/* ---------------- Simple Modal + Confirm ---------------- */
+// Component: Simple Modal
 function Modal({
   open,
   onClose,
@@ -361,6 +130,7 @@ function Modal({
   );
 }
 
+// Component: Confirm Dialog
 function Confirm({
   open,
   onClose,
@@ -398,7 +168,16 @@ function Confirm({
   );
 }
 
-/* ---------------- Page ---------------- */
+// Utility: Format date
+const fmtDate = (iso: string) => {
+  try {
+    return new Date(iso).toLocaleDateString();
+  } catch {
+    return "Invalid date";
+  }
+};
+
+/* Main Page Component */
 export default function AttendancePage() {
   const [tab, setTab] = React.useState<TabKey>("overview");
 
@@ -792,8 +571,8 @@ export default function AttendancePage() {
     if (!sb) return;
     if (!editSessionId) return;
     const payload: Partial<Session> = {
-      teacher_id: editSessTeacherId || null,
-      title: editSessTitle || null,
+      teacher_id: editSessTeacherId as string,
+      title: editSessTitle as string,
       starts_at: new Date(editSessStartsAt).toISOString(),
     };
     const { error } = await sb
