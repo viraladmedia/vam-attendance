@@ -37,6 +37,11 @@ export default function TeachersPage() {
   const [courseSaving, setCourseSaving] = React.useState(false);
   const [courseError, setCourseError] = React.useState<string | null>(null);
   const [courseSuccess, setCourseSuccess] = React.useState<string | null>(null);
+  const [openTeacherModal, setOpenTeacherModal] = React.useState(false);
+  const [newTeacherName, setNewTeacherName] = React.useState("");
+  const [newTeacherEmail, setNewTeacherEmail] = React.useState("");
+  const [teacherSaving, setTeacherSaving] = React.useState(false);
+  const [teacherError, setTeacherError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const load = async () => {
@@ -85,6 +90,7 @@ export default function TeachersPage() {
             <Button variant="secondary" onClick={() => setOpenCourse(true)}>
               + Add Course
             </Button>
+            <Button onClick={() => setOpenTeacherModal(true)}>+ Add Teacher</Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -139,6 +145,78 @@ export default function TeachersPage() {
           )}
         </CardContent>
       </Card>
+
+      {openTeacherModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenTeacherModal(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-md rounded-2xl border bg-white p-4 shadow-xl"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-800">Add Teacher</h3>
+              <button
+                aria-label="Close"
+                className="h-8 w-8 rounded-md hover:bg-slate-100"
+                onClick={() => setOpenTeacherModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-2">
+              <Input
+                placeholder="Full name"
+                value={newTeacherName}
+                onChange={(e) => setNewTeacherName(e.target.value)}
+                className="h-9"
+              />
+              <Input
+                placeholder="Email"
+                value={newTeacherEmail}
+                onChange={(e) => setNewTeacherEmail(e.target.value)}
+                className="h-9"
+              />
+              {teacherError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {teacherError}
+                </div>
+              )}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOpenTeacherModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={teacherSaving || !newTeacherName.trim() || !newTeacherEmail.trim()}
+                onClick={async () => {
+                  try {
+                    setTeacherSaving(true);
+                    setTeacherError(null);
+                    const res = await fetch("/api/teachers", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ name: newTeacherName.trim(), email: newTeacherEmail.trim() }),
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                    setNewTeacherName("");
+                    setNewTeacherEmail("");
+                    setOpenTeacherModal(false);
+                    // refresh list
+                    const tRes = await fetch("/api/teachers", { cache: "no-store" });
+                    if (tRes.ok) setTeachers((await tRes.json()) as Teacher[]);
+                  } catch (err) {
+                    setTeacherError(err instanceof Error ? err.message : "Failed to create teacher");
+                  } finally {
+                    setTeacherSaving(false);
+                  }
+                }}
+              >
+                {teacherSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {openCourse && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenCourse(false)}>

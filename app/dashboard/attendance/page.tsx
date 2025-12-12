@@ -266,65 +266,24 @@ export default function AttendancePage() {
 
   /* ------------ Loaders ------------ */
   const reload = React.useCallback(async () => {
-    if (!sb) return;
     const [t, s, ss, a] = await Promise.all([
-      sb.from("my_teachers").select("*").order("created_at", {
-        ascending: false,
-      }),
-      sb.from("my_students").select("*").order("created_at", {
-        ascending: false,
-      }),
-      sb.from("my_sessions").select("*").order("starts_at", {
-        ascending: false,
-      }),
-      sb.from("my_attendance").select("*").order("noted_at", {
-        ascending: false,
-      }),
+      fetch("/api/teachers", { cache: "no-store" }),
+      fetch("/api/students", { cache: "no-store" }),
+      fetch("/api/sessions", { cache: "no-store" }),
+      fetch("/api/attendance", { cache: "no-store" }),
     ]);
-    if (!t.error && t.data) setTeachers(t.data as Teacher[]);
-    if (!s.error && s.data) setStudents(s.data as Student[]);
-    if (!ss.error && ss.data) setSessions(ss.data as Session[]);
-    if (!a.error && a.data) setAttendance(a.data as Attendance[]);
-  }, [sb]);
+    if (t.ok) setTeachers((await t.json()) as Teacher[]);
+    if (s.ok) setStudents((await s.json()) as Student[]);
+    if (ss.ok) setSessions((await ss.json()) as Session[]);
+    if (a.ok) setAttendance((await a.json()) as Attendance[]);
+  }, []);
 
   React.useEffect(() => {
     reload();
   }, [reload]);
 
-  React.useEffect(() => {
-    if (!sb) return;
-    const channel = sb
-      .channel("attendance-bus")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "teachers" },
-        reload
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "students" },
-        reload
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "teacher_students" },
-        reload
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "sessions" },
-        reload
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "attendance" },
-        reload
-      )
-      .subscribe();
-    return () => {
-      sb.removeChannel(channel);
-    };
-  }, [sb, reload]);
+  // Poll-based refresh only when page mounts
+  // (Subscriptions removed to simplify client requirements)
 
   /* ------------ Derived ------------ */
   const tMap = React.useMemo(() => byId(teachers), [teachers]);
@@ -377,40 +336,48 @@ export default function AttendancePage() {
   }, [students, teachers, sessions, attendance]);
 
   const addSessionRPC = async () => {
-    if (!sb) return;
     if (!sessTeacherId || !sessStartsAt) return;
     const startsAt = new Date(sessStartsAt).toISOString();
-    const { error } = await sb.rpc("create_session_owned", {
-      p_teacher_id: sessTeacherId,
-      p_title: sessTitle || null,
-      p_starts_at: startsAt,
+    const res = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        teacher_id: sessTeacherId,
+        title: sessTitle || null,
+        starts_at: startsAt,
+      }),
     });
-    if (error) {
-      console.error(error);
+    if (!res.ok) {
+      console.error(await res.text());
       return;
     }
     setSessTeacherId("");
     setSessTitle("");
     setSessStartsAt("");
     setOpenSession(false);
+    reload();
   };
 
   const addAttendance = async () => {
-    if (!sb) return;
     if (!attendSessionId || !attendStudentId) return;
-    const { error } = await sb.from("attendance").insert({
-      session_id: attendSessionId,
-      student_id: attendStudentId,
-      status: attendStatus,
+    const res = await fetch("/api/attendance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: attendSessionId,
+        student_id: attendStudentId,
+        status: attendStatus,
+      }),
     });
-    if (error) {
-      console.error(error);
+    if (!res.ok) {
+      console.error(await res.text());
       return;
     }
     setAttendSessionId("");
     setAttendStudentId("");
     setAttendStatus("present");
     setOpenAttend(false);
+    reload();
   };
 
   /* ------------ EDIT flows ------------ */

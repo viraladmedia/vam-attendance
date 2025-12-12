@@ -42,6 +42,11 @@ export default function StudentsPage() {
   const [enrollSaving, setEnrollSaving] = React.useState(false);
   const [enrollError, setEnrollError] = React.useState<string | null>(null);
   const [enrollSuccess, setEnrollSuccess] = React.useState<string | null>(null);
+  const [openStudentModal, setOpenStudentModal] = React.useState(false);
+  const [newStudentName, setNewStudentName] = React.useState("");
+  const [newStudentEmail, setNewStudentEmail] = React.useState("");
+  const [studentSaving, setStudentSaving] = React.useState(false);
+  const [studentError, setStudentError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const load = async () => {
@@ -101,6 +106,7 @@ export default function StudentsPage() {
             <Button variant="secondary" onClick={() => setOpenEnroll(true)}>
               + Enroll Student
             </Button>
+            <Button onClick={() => setOpenStudentModal(true)}>+ Add Student</Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -157,6 +163,77 @@ export default function StudentsPage() {
           )}
         </CardContent>
       </Card>
+
+      {openStudentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenStudentModal(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-md rounded-2xl border bg-white p-4 shadow-xl"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-800">Add Student</h3>
+              <button
+                aria-label="Close"
+                className="h-8 w-8 rounded-md hover:bg-slate-100"
+                onClick={() => setOpenStudentModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-2">
+              <Input
+                placeholder="Full name"
+                value={newStudentName}
+                onChange={(e) => setNewStudentName(e.target.value)}
+                className="h-9"
+              />
+              <Input
+                placeholder="Email (optional)"
+                value={newStudentEmail}
+                onChange={(e) => setNewStudentEmail(e.target.value)}
+                className="h-9"
+              />
+              {studentError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {studentError}
+                </div>
+              )}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOpenStudentModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={studentSaving || !newStudentName.trim()}
+                onClick={async () => {
+                  try {
+                    setStudentSaving(true);
+                    setStudentError(null);
+                    const res = await fetch("/api/students", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ name: newStudentName.trim(), email: newStudentEmail || undefined }),
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                    setNewStudentName("");
+                    setNewStudentEmail("");
+                    setOpenStudentModal(false);
+                    const sRes = await fetch("/api/students", { cache: "no-store" });
+                    if (sRes.ok) setStudents((await sRes.json()) as Student[]);
+                  } catch (err) {
+                    setStudentError(err instanceof Error ? err.message : "Failed to create student");
+                  } finally {
+                    setStudentSaving(false);
+                  }
+                }}
+              >
+                {studentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {openEnroll && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenEnroll(false)}>
