@@ -10,6 +10,7 @@ export type RouteContext = {
 
 export async function getRouteContext(): Promise<RouteContext> {
   const cookieStore = await cookies();
+  const cookieOrg = cookieStore.get("vam_active_org")?.value || null;
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -35,7 +36,7 @@ export async function getRouteContext(): Promise<RouteContext> {
 
   const meta = session.user.app_metadata || {};
   const userMeta = session.user.user_metadata || {};
-  const orgId = (meta as any).org_id || (userMeta as any).default_org_id;
+  const orgId = (meta as any).org_id || (userMeta as any).default_org_id || cookieOrg;
   if (!orgId) {
     throw new Error("org_not_set");
   }
