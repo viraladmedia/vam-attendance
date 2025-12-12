@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   LineChart,
+  Users,
+  GraduationCap,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -51,7 +53,9 @@ export function Sidebar() {
   const nav: NavItem[] = [
     { key: "overview", href: "/dashboard", label: "Overview", icon: LayoutDashboard },
 
-    { key: "attendance", href: "/dashboard/attendance/", label: "Attendance", icon: LineChart },
+    { key: "attendance", href: "/dashboard/attendance", label: "Attendance", icon: LineChart },
+    { key: "teachers", href: "/dashboard/teachers", label: "Teachers", icon: Users },
+    { key: "students", href: "/dashboard/students", label: "Students", icon: GraduationCap },
 
     { key: "settings", href: "/dashboard/settings", label: "Settings", icon: Settings },
   ];
