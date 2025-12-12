@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
     const { session, orgId } = await getRouteContext();
     const supabaseService = getServiceClient();
-    const stripe = new Stripe(stripeSecret, { apiVersion: "2024-06-20" });
+    const stripe = new Stripe(stripeSecret, { apiVersion: "2024-04-10" });
 
     const { data: orgRow, error: orgError } = await supabaseService
       .from("organizations")
