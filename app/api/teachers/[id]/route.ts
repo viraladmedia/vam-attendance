@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getRouteContext } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
@@ -27,14 +27,15 @@ function handleError(error: unknown) {
   return NextResponse.json({ error: "Unexpected error" }, { status: 500 });
 }
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const { supabase, orgId } = await getRouteContext();
     const { data, error } = await supabase
       .from("teachers")
       .select("*")
       .eq("org_id", orgId)
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (error) throw error;
@@ -44,8 +45,9 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   }
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const payload = updateSchema.parse(body);
     const { supabase, session, orgId } = await getRouteContext();
@@ -54,29 +56,30 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       .from("teachers")
       .update(payload)
       .eq("org_id", orgId)
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "update", "teacher", params.id, payload);
+    await logAudit(supabase, orgId, session.user.id, "update", "teacher", id, payload);
     return NextResponse.json(data);
   } catch (error) {
     return handleError(error);
   }
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const { supabase, session, orgId } = await getRouteContext();
     const { error } = await supabase
       .from("teachers")
       .delete()
       .eq("org_id", orgId)
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (error) throw error;
-    await logAudit(supabase, orgId, session.user.id, "delete", "teacher", params.id);
+    await logAudit(supabase, orgId, session.user.id, "delete", "teacher", id);
     return NextResponse.json({ success: true });
   } catch (error) {
     return handleError(error);
