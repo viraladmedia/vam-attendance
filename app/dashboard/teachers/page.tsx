@@ -6,6 +6,13 @@ import { TopBar } from "@/components/dashboard/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Users, Mail, Loader2 } from "lucide-react";
 
 type Teacher = {
@@ -22,6 +29,14 @@ export default function TeachersPage() {
   const [query, setQuery] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [openCourse, setOpenCourse] = React.useState(false);
+  const [courseTitle, setCourseTitle] = React.useState("");
+  const [courseModality, setCourseModality] = React.useState<"group" | "1on1">("group");
+  const [courseLeadTeacher, setCourseLeadTeacher] = React.useState<string>("");
+  const [courseMaxStudents, setCourseMaxStudents] = React.useState<string>("");
+  const [courseSaving, setCourseSaving] = React.useState(false);
+  const [courseError, setCourseError] = React.useState<string | null>(null);
+  const [courseSuccess, setCourseSuccess] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const load = async () => {
@@ -32,6 +47,9 @@ export default function TeachersPage() {
         if (!res.ok) throw new Error(await res.text());
         const data = (await res.json()) as Teacher[];
         setTeachers(data);
+        if (!courseLeadTeacher && data.length > 0) {
+          setCourseLeadTeacher(data[0].id);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load teachers");
       } finally {
@@ -64,8 +82,8 @@ export default function TeachersPage() {
               onChange={(e) => setQuery(e.target.value)}
               className="w-56"
             />
-            <Button disabled variant="secondary">
-              + Add Teacher
+            <Button variant="secondary" onClick={() => setOpenCourse(true)}>
+              + Add Course
             </Button>
           </div>
         </CardHeader>
@@ -121,6 +139,113 @@ export default function TeachersPage() {
           )}
         </CardContent>
       </Card>
+
+      {openCourse && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenCourse(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-lg rounded-2xl border bg-white p-4 shadow-xl"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-800">Add Course / Program</h3>
+              <button
+                aria-label="Close"
+                className="h-8 w-8 rounded-md hover:bg-slate-100"
+                onClick={() => setOpenCourse(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Input
+                placeholder="Title"
+                value={courseTitle}
+                onChange={(e) => setCourseTitle(e.target.value)}
+                className="h-9 sm:col-span-2"
+              />
+              <Select value={courseModality} onValueChange={(v) => setCourseModality(v as "group" | "1on1")}>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Modality" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="group">Group</SelectItem>
+                  <SelectItem value="1on1">1 on 1</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={courseLeadTeacher} onValueChange={setCourseLeadTeacher}>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Lead teacher" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teachers.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="Max students (optional)"
+                inputMode="numeric"
+                value={courseMaxStudents}
+                onChange={(e) => setCourseMaxStudents(e.target.value)}
+                className="h-9"
+              />
+            </div>
+
+            {courseSuccess && (
+              <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                {courseSuccess}
+              </div>
+            )}
+            {courseError && (
+              <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {courseError}
+              </div>
+            )}
+
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOpenCourse(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={courseSaving || !courseTitle.trim()}
+                onClick={async () => {
+                  try {
+                    setCourseSaving(true);
+                    setCourseError(null);
+                    setCourseSuccess(null);
+                    const payload: any = {
+                      title: courseTitle.trim(),
+                      modality: courseModality,
+                      lead_teacher_id: courseLeadTeacher || null,
+                    };
+                    if (courseMaxStudents) payload.max_students = Number(courseMaxStudents);
+                    const res = await fetch("/api/courses", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(payload),
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                    setCourseSuccess("Course created");
+                    setCourseTitle("");
+                    setCourseMaxStudents("");
+                    setOpenCourse(false);
+                  } catch (err) {
+                    setCourseError(err instanceof Error ? err.message : "Failed to create course");
+                  } finally {
+                    setCourseSaving(false);
+                  }
+                }}
+              >
+                {courseSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Course"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

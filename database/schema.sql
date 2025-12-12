@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS memberships (
   UNIQUE (org_id, user_id)
 );
 
--- Helper functions for org-aware RLS (after memberships exists)
-CREATE OR REPLACE FUNCTION auth.org_id()
+-- NOTE: These functions live in the public schema (not auth) to avoid permission issues.
+CREATE OR REPLACE FUNCTION public.app_org_id()
 RETURNS uuid
 LANGUAGE sql
 STABLE
@@ -34,7 +34,7 @@ AS $$
   SELECT NULLIF(auth.jwt()->>'org_id', '')::uuid;
 $$;
 
-CREATE OR REPLACE FUNCTION auth.has_org_role(check_org uuid, roles text[])
+CREATE OR REPLACE FUNCTION public.app_has_org_role(check_org uuid, roles text[])
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -48,7 +48,7 @@ AS $$
   );
 $$;
 
-CREATE OR REPLACE FUNCTION auth.is_org_member(check_org uuid)
+CREATE OR REPLACE FUNCTION public.app_is_org_member(check_org uuid)
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -59,6 +59,46 @@ AS $$
     WHERE m.org_id = check_org
       AND m.user_id = auth.uid()
   );
+$$;
+
+-- If legacy tables already exist, ensure org_id column is present before policies run.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'org_id'
+  ) THEN
+    ALTER TABLE users ADD COLUMN org_id uuid REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'teachers' AND column_name = 'org_id'
+  ) THEN
+    ALTER TABLE teachers ADD COLUMN org_id uuid REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'students' AND column_name = 'org_id'
+  ) THEN
+    ALTER TABLE students ADD COLUMN org_id uuid REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'sessions' AND column_name = 'org_id'
+  ) THEN
+    ALTER TABLE sessions ADD COLUMN org_id uuid REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'attendance' AND column_name = 'org_id'
+  ) THEN
+    ALTER TABLE attendance ADD COLUMN org_id uuid REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+END;
 $$;
 
 -- Invitations
@@ -131,6 +171,35 @@ CREATE TABLE IF NOT EXISTS teachers (
   UNIQUE (org_id, email)
 );
 
+-- Courses / Programs
+CREATE TABLE IF NOT EXISTS courses (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  description text,
+  modality text NOT NULL CHECK (modality IN ('group', '1on1')),
+  lead_teacher_id uuid REFERENCES teachers(id) ON DELETE SET NULL,
+  max_students int,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- Enrollments (student can join many courses)
+CREATE TABLE IF NOT EXISTS enrollments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  student_id uuid NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  course_id uuid NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  teacher_id uuid REFERENCES teachers(id) ON DELETE SET NULL,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','paused','completed','dropped')),
+  enrolled_at timestamptz DEFAULT now(),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE (org_id, student_id, course_id)
+);
+
 -- Students
 CREATE TABLE IF NOT EXISTS students (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -150,6 +219,7 @@ CREATE TABLE IF NOT EXISTS students (
 CREATE TABLE IF NOT EXISTS sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  course_id uuid REFERENCES courses(id) ON DELETE SET NULL,
   teacher_id uuid REFERENCES teachers(id) ON DELETE SET NULL,
   title text,
   starts_at timestamptz NOT NULL,
@@ -183,6 +253,10 @@ CREATE INDEX IF NOT EXISTS idx_memberships_org_user ON memberships(org_id, user_
 CREATE INDEX IF NOT EXISTS idx_invites_org_email ON invites(org_id, email);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_org_id ON audit_logs(org_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_org_id ON subscriptions(org_id);
+CREATE INDEX IF NOT EXISTS idx_courses_org_id ON courses(org_id);
+CREATE INDEX IF NOT EXISTS idx_courses_lead_teacher ON courses(lead_teacher_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_org_student ON enrollments(org_id, student_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_org_course ON enrollments(org_id, course_id);
 
 -- Enable Row Level Security
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
@@ -195,14 +269,16 @@ ALTER TABLE teachers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE enrollments ENABLE ROW LEVEL SECURITY;
 
 -- Organizations policies
 CREATE POLICY "Organizations are org-scoped readable by members"
   ON organizations FOR SELECT
   USING (
-    id = auth.org_id()
+    id = public.app_org_id()
     AND (
-      auth.is_org_member(id)
+      public.app_is_org_member(id)
       OR owner_id = auth.uid()
     )
   );
@@ -224,118 +300,118 @@ CREATE POLICY "Organizations delete by owner"
 CREATE POLICY "Memberships are org-scoped readable by members"
   ON memberships FOR SELECT
   USING (
-    org_id = auth.org_id()
-    AND auth.is_org_member(org_id)
+    org_id = public.app_org_id()
+    AND public.app_is_org_member(org_id)
   );
 
 CREATE POLICY "Memberships insert by org admins"
   ON memberships FOR INSERT
   WITH CHECK (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   );
 
 CREATE POLICY "Memberships update by org admins"
   ON memberships FOR UPDATE
   USING (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   )
   WITH CHECK (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   );
 
 CREATE POLICY "Memberships delete by org admins"
   ON memberships FOR DELETE
   USING (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   );
 
 -- Invites policies
 CREATE POLICY "Invites readable in org by members"
   ON invites FOR SELECT
   USING (
-    org_id = auth.org_id()
-    AND auth.is_org_member(org_id)
+    org_id = public.app_org_id()
+    AND public.app_is_org_member(org_id)
   );
 
 CREATE POLICY "Invites insert by org admins"
   ON invites FOR INSERT
   WITH CHECK (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   );
 
 CREATE POLICY "Invites update by org admins"
   ON invites FOR UPDATE
   USING (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   )
   WITH CHECK (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   );
 
 CREATE POLICY "Invites delete by org admins"
   ON invites FOR DELETE
   USING (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   );
 
 -- Subscriptions policies
 CREATE POLICY "Subscriptions readable by org members"
   ON subscriptions FOR SELECT
   USING (
-    org_id = auth.org_id()
-    AND auth.is_org_member(org_id)
+    org_id = public.app_org_id()
+    AND public.app_is_org_member(org_id)
   );
 
 CREATE POLICY "Subscriptions mutate by org admins"
   ON subscriptions FOR ALL
   USING (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   )
   WITH CHECK (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   );
 
 -- Audit logs policies (read admin+, insert any member via server)
 CREATE POLICY "Audit logs readable by org admins"
   ON audit_logs FOR SELECT
   USING (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   );
 
 CREATE POLICY "Audit logs insert by members"
   ON audit_logs FOR INSERT
   WITH CHECK (
-    org_id = auth.org_id()
-    AND auth.is_org_member(org_id)
+    org_id = public.app_org_id()
+    AND public.app_is_org_member(org_id)
   );
 
 -- Users policies (self within org)
 CREATE POLICY "Users readable by self within org"
   ON users FOR SELECT
   USING (
-    org_id = auth.org_id()
+    org_id = public.app_org_id()
     AND id = auth.uid()
   );
 
 CREATE POLICY "Users update self within org"
   ON users FOR UPDATE
   USING (
-    org_id = auth.org_id()
+    org_id = public.app_org_id()
     AND id = auth.uid()
   )
   WITH CHECK (
-    org_id = auth.org_id()
+    org_id = public.app_org_id()
     AND id = auth.uid()
   );
 
@@ -343,132 +419,197 @@ CREATE POLICY "Users update self within org"
 CREATE POLICY "Teachers readable by org members"
   ON teachers FOR SELECT
   USING (
-    org_id = auth.org_id()
-    AND auth.is_org_member(org_id)
+    org_id = public.app_org_id()
+    AND public.app_is_org_member(org_id)
   );
 
 CREATE POLICY "Teachers insert by org admins"
   ON teachers FOR INSERT
   WITH CHECK (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   );
 
 CREATE POLICY "Teachers update by org admins"
   ON teachers FOR UPDATE
   USING (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   )
   WITH CHECK (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   );
 
 CREATE POLICY "Teachers delete by org admins"
   ON teachers FOR DELETE
   USING (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin'])
   );
 
 -- Students policies
 CREATE POLICY "Students readable by org members"
   ON students FOR SELECT
   USING (
-    org_id = auth.org_id()
-    AND auth.is_org_member(org_id)
+    org_id = public.app_org_id()
+    AND public.app_is_org_member(org_id)
   );
 
 CREATE POLICY "Students insert by admins or teachers"
   ON students FOR INSERT
   WITH CHECK (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin','teacher'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
   );
 
 CREATE POLICY "Students update by admins or teachers"
   ON students FOR UPDATE
   USING (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin','teacher'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
   )
   WITH CHECK (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin','teacher'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
   );
 
 CREATE POLICY "Students delete by admins or teachers"
   ON students FOR DELETE
   USING (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin','teacher'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
   );
 
 -- Sessions policies
 CREATE POLICY "Sessions readable by org members"
   ON sessions FOR SELECT
   USING (
-    org_id = auth.org_id()
-    AND auth.is_org_member(org_id)
+    org_id = public.app_org_id()
+    AND public.app_is_org_member(org_id)
   );
 
 CREATE POLICY "Sessions insert by admins or teachers"
   ON sessions FOR INSERT
   WITH CHECK (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin','teacher'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
   );
 
 CREATE POLICY "Sessions update by admins or teachers"
   ON sessions FOR UPDATE
   USING (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin','teacher'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
   )
   WITH CHECK (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin','teacher'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
   );
 
 CREATE POLICY "Sessions delete by admins or teachers"
   ON sessions FOR DELETE
   USING (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin','teacher'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
   );
 
+-- Courses policies
+CREATE POLICY "Courses readable by org members"
+  ON courses FOR SELECT
+  USING (
+    org_id = public.app_org_id()
+    AND public.app_is_org_member(org_id)
+  );
+
+CREATE POLICY "Courses insert by admins or teachers"
+  ON courses FOR INSERT
+  WITH CHECK (
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
+  );
+
+CREATE POLICY "Courses update by admins or teachers"
+  ON courses FOR UPDATE
+  USING (
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
+  )
+  WITH CHECK (
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
+  );
+
+CREATE POLICY "Courses delete by admins or teachers"
+  ON courses FOR DELETE
+  USING (
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
+  );
+
+-- Enrollments policies
+CREATE POLICY "Enrollments readable by org members"
+  ON enrollments FOR SELECT
+  USING (
+    org_id = public.app_org_id()
+    AND public.app_is_org_member(org_id)
+  );
+
+CREATE POLICY "Enrollments insert by admins or teachers"
+  ON enrollments FOR INSERT
+  WITH CHECK (
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
+  );
+
+CREATE POLICY "Enrollments update by admins or teachers"
+  ON enrollments FOR UPDATE
+  USING (
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
+  )
+  WITH CHECK (
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
+  );
+
+CREATE POLICY "Enrollments delete by admins or teachers"
+  ON enrollments FOR DELETE
+  USING (
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
+  );
 -- Attendance policies
 CREATE POLICY "Attendance readable by org members"
   ON attendance FOR SELECT
   USING (
-    org_id = auth.org_id()
-    AND auth.is_org_member(org_id)
+    org_id = public.app_org_id()
+    AND public.app_is_org_member(org_id)
   );
 
 CREATE POLICY "Attendance insert by admins or teachers"
   ON attendance FOR INSERT
   WITH CHECK (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin','teacher'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
   );
 
 CREATE POLICY "Attendance update by admins or teachers"
   ON attendance FOR UPDATE
   USING (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin','teacher'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
   )
   WITH CHECK (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin','teacher'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
   );
 
 CREATE POLICY "Attendance delete by admins or teachers"
   ON attendance FOR DELETE
   USING (
-    org_id = auth.org_id()
-    AND auth.has_org_role(org_id, ARRAY['owner','admin','teacher'])
+    org_id = public.app_org_id()
+    AND public.app_has_org_role(org_id, ARRAY['owner','admin','teacher'])
   );
 
 -- updated_at trigger helper
@@ -480,7 +621,45 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Triggers
+-- Triggers (drop/create to avoid duplicates on re-run)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_users_updated_at') THEN
+    DROP TRIGGER update_users_updated_at ON users;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_teachers_updated_at') THEN
+    DROP TRIGGER update_teachers_updated_at ON teachers;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_students_updated_at') THEN
+    DROP TRIGGER update_students_updated_at ON students;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_sessions_updated_at') THEN
+    DROP TRIGGER update_sessions_updated_at ON sessions;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_attendance_updated_at') THEN
+    DROP TRIGGER update_attendance_updated_at ON attendance;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_organizations_updated_at') THEN
+    DROP TRIGGER update_organizations_updated_at ON organizations;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_memberships_updated_at') THEN
+    DROP TRIGGER update_memberships_updated_at ON memberships;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_invites_updated_at') THEN
+    DROP TRIGGER update_invites_updated_at ON invites;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_subscriptions_updated_at') THEN
+    DROP TRIGGER update_subscriptions_updated_at ON subscriptions;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_courses_updated_at') THEN
+    DROP TRIGGER update_courses_updated_at ON courses;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_enrollments_updated_at') THEN
+    DROP TRIGGER update_enrollments_updated_at ON enrollments;
+  END IF;
+END;
+$$;
+
 CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON organizations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_memberships_updated_at BEFORE UPDATE ON memberships FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_invites_updated_at BEFORE UPDATE ON invites FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -490,3 +669,5 @@ CREATE TRIGGER update_teachers_updated_at BEFORE UPDATE ON teachers FOR EACH ROW
 CREATE TRIGGER update_students_updated_at BEFORE UPDATE ON students FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON sessions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_attendance_updated_at BEFORE UPDATE ON attendance FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_courses_updated_at BEFORE UPDATE ON courses FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_enrollments_updated_at BEFORE UPDATE ON enrollments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

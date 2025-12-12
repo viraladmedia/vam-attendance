@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 
 interface DashboardStats {
   totalStudents: number;
+  totalCourses: number;
+  totalEnrollments: number;
   weekSessions: number;
   avgAttendanceRate: number;
   activeSessions: number;
@@ -30,6 +32,8 @@ interface StudentData {
 export function useDashboardData() {
   const [stats, setStats] = useState<DashboardStats>({
     totalStudents: 0,
+    totalCourses: 0,
+    totalEnrollments: 0,
     weekSessions: 0,
     avgAttendanceRate: 0,
     activeSessions: 0,
@@ -46,23 +50,29 @@ export function useDashboardData() {
         setStats((prev) => ({ ...prev, loading: true, error: null }));
 
         // Fetch all data in parallel via server routes (org-scoped)
-        const [studentsRes, sessionsRes] = await Promise.all([
+        const [studentsRes, sessionsRes, coursesRes, enrollmentsRes] = await Promise.all([
           fetch("/api/students"),
           fetch("/api/sessions"),
+          fetch("/api/courses"),
+          fetch("/api/enrollments"),
         ]);
 
         if (!studentsRes.ok) {
           throw new Error(await studentsRes.text());
         }
-        if (!sessionsRes.ok) {
-          throw new Error(await sessionsRes.text());
-        }
+        if (!sessionsRes.ok) throw new Error(await sessionsRes.text());
+        if (!coursesRes.ok) throw new Error(await coursesRes.text());
+        if (!enrollmentsRes.ok) throw new Error(await enrollmentsRes.text());
 
         const studentsData = (await studentsRes.json()) as StudentData[];
         const sessionsData = (await sessionsRes.json()) as SessionData[];
+        const coursesData = (await coursesRes.json()) as any[];
+        const enrollmentsData = (await enrollmentsRes.json()) as any[];
 
         // Calculate stats
         const totalStudents = studentsData?.length || 0;
+        const totalCourses = coursesData?.length || 0;
+        const totalEnrollments = enrollmentsData?.length || 0;
 
         // Get sessions from this week
         const now = new Date();
@@ -92,6 +102,8 @@ export function useDashboardData() {
 
         setStats({
           totalStudents,
+          totalCourses,
+          totalEnrollments,
           weekSessions,
           avgAttendanceRate,
           activeSessions,

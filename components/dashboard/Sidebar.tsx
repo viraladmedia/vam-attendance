@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   LineChart,
+  BookOpen,
   Users,
   GraduationCap,
   Settings,
@@ -54,6 +55,7 @@ export function Sidebar() {
     { key: "overview", href: "/dashboard", label: "Overview", icon: LayoutDashboard },
 
     { key: "attendance", href: "/dashboard/attendance", label: "Attendance", icon: LineChart },
+    { key: "courses", href: "/dashboard/courses", label: "Courses", icon: BookOpen },
     { key: "teachers", href: "/dashboard/teachers", label: "Teachers", icon: Users },
     { key: "students", href: "/dashboard/students", label: "Students", icon: GraduationCap },
 

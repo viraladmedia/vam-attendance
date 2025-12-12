@@ -15,28 +15,28 @@ export default function OverviewPage() {
   // Format stats for display
   const statsData = [
     {
-      title: "Total Students",
-      value: stats.totalStudents.toString(),
-      icon: Users,
-      trend: `${stats.totalStudents > 0 ? "+" : ""}0%`,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
-    },
-    {
-      title: "This Week Sessions",
-      value: stats.weekSessions.toString(),
-      icon: Calendar,
-      trend: `${stats.weekSessions} scheduled`,
-      color: "text-purple-600",
-      bgColor: "bg-purple-50",
-    },
-    {
       title: "Avg Attendance Rate",
       value: `${stats.avgAttendanceRate}%`,
       icon: TrendingUp,
       trend: "Across all teachers",
       color: "text-green-600",
       bgColor: "bg-green-50",
+    },
+    {
+      title: "Total Students",
+      value: stats.totalStudents.toString(),
+      icon: Users,
+      trend: `${stats.totalEnrollments} enrollments`,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+    },
+    {
+      title: "Courses",
+      value: stats.totalCourses.toString(),
+      icon: Calendar,
+      trend: `${stats.weekSessions} sessions this week`,
+      color: "text-purple-600",
+      bgColor: "bg-purple-50",
     },
     {
       title: "Active Sessions",
