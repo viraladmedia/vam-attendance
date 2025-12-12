@@ -42,6 +42,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const meta = data.user?.app_metadata || {};
+    const userMeta = data.user?.user_metadata || {};
+    const orgId = (meta as any).org_id || (userMeta as any).default_org_id || null;
+    const orgName = (meta as any).org_name || (userMeta as any).org_name || "Primary Organization";
+    if (orgId) {
+      cookieStore.set("vam_active_org", String(orgId), {
+        path: "/",
+        sameSite: "lax",
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 60 * 60 * 24 * 30,
+      });
+      cookieStore.set("vam_active_org_name", String(orgName), {
+        path: "/",
+        sameSite: "lax",
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 60 * 60 * 24 * 30,
+      });
+    }
+
     return NextResponse.json(
       {
         message: "Login successful",

@@ -2,6 +2,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { getServiceClient } from "@/lib/supabase/service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,16 +46,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // Create user profile
+    // Create org + membership + profile with service role (bypass RLS)
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { error: "Service role key missing on server" },
+        { status: 500 }
+      );
+    }
+
     if (data.user) {
-      await supabase.from("users").insert([
+      const service = getServiceClient();
+      const orgName = fullName ? `${fullName}'s Org` : "New Organization";
+      // Insert organization
+      const { data: orgRows, error: orgErr } = await service
+        .from("organizations")
+        .insert([{ name: orgName, owner_id: data.user.id }])
+        .select("id")
+        .single();
+      if (orgErr) {
+        return NextResponse.json({ error: orgErr.message }, { status: 400 });
+      }
+      const orgId = orgRows.id as string;
+
+      // Membership
+      await service.from("memberships").insert([
+        { org_id: orgId, user_id: data.user.id, role: "owner" },
+      ]);
+
+      // Profile with org
+      await service.from("users").insert([
         {
           id: data.user.id,
+          org_id: orgId,
           email,
           full_name: fullName,
           created_at: new Date().toISOString(),
         },
       ]);
+
+      // Set default org metadata (app + user)
+      await service.auth.admin.updateUserById(data.user.id, {
+        app_metadata: { org_id: orgId, org_name: orgName },
+        user_metadata: { default_org_id: orgId, org_name: orgName },
+      });
     }
 
     return NextResponse.json(
