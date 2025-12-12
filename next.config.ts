@@ -33,7 +33,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value:
               "default-src 'self'; " +
-              "script-src 'self' https://cdn.jsdelivr.net https://js.stripe.com; " +
+              "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://js.stripe.com; " +
               "style-src 'self' https://fonts.googleapis.com; " +
               "img-src 'self' data: https:; " +
               "font-src 'self' https://fonts.gstatic.com; " +
