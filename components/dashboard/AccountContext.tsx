@@ -10,15 +10,33 @@ type AccountCtx = {
 
 const Ctx = React.createContext<AccountCtx | null>(null);
 
-export function AccountProvider({ children }: { children: React.ReactNode }) {
-  const [accountId, setAccountId] = React.useState<string>(
-    (typeof window !== "undefined" && localStorage.getItem("vam.account")) || "all"
-  );
-  const [accountLabel, setAccountLabel] = React.useState<string>(
-    (typeof window !== "undefined" && localStorage.getItem("vam.account_label")) || "All Accounts"
-  );
+function readCookie(name: string) {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.split("=")[1]) : null;
+}
 
-  // Listen to Sidebar broadcasts
+function writeCookie(name: string, value: string) {
+  if (typeof document === "undefined") return;
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}${secure}`;
+}
+
+export function AccountProvider({ children }: { children: React.ReactNode }) {
+  const [accountId, setAccountId] = React.useState<string>(() => {
+    if (typeof window === "undefined") return "all";
+    return readCookie("vam_active_org") || localStorage.getItem("vam.account") || "all";
+  });
+
+  const [accountLabel, setAccountLabel] = React.useState<string>(() => {
+    if (typeof window === "undefined") return "All Accounts";
+    return readCookie("vam_active_org_name") || localStorage.getItem("vam.account_label") || "All Accounts";
+  });
+
+  // Sync from broadcast events
   React.useEffect(() => {
     const onAcc = ((e: Event) => {
       const d = (e as CustomEvent).detail as { account?: string; account_label?: string } | undefined;
@@ -29,7 +47,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("vam:set-account", onAcc);
   }, []);
 
-  // Allow programmatic updates too (optional)
+  // Persist choice into cookie + local storage for consistency
   const setAccount = React.useCallback((id: string, label: string) => {
     setAccountId(id);
     setAccountLabel(label);
@@ -37,6 +55,8 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("vam.account", id);
       localStorage.setItem("vam.account_label", label);
     } catch {}
+    writeCookie("vam_active_org", id);
+    writeCookie("vam_active_org_name", label);
     window.dispatchEvent(new CustomEvent("vam:set-account", {
       detail: { account: id, account_label: label },
     }));

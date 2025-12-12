@@ -1,11 +1,5 @@
 // lib/hooks/useDashboardData.ts
 import { useEffect, useState } from "react";
-import {
-  getStudentAttendanceStats,
-  getTeacherAttendanceStats,
-  getAllSessions,
-  getAllStudents,
-} from "@/lib/supabase/database";
 
 interface DashboardStats {
   totalStudents: number;
@@ -20,7 +14,7 @@ interface SessionData {
   id: string;
   title: string;
   starts_at: string;
-  ends_at: string;
+  ends_at?: string | null;
   class_name: string;
   description: string | null;
 }
@@ -51,11 +45,21 @@ export function useDashboardData() {
       try {
         setStats((prev) => ({ ...prev, loading: true, error: null }));
 
-        // Fetch all data in parallel
-        const [studentsData, sessionsData] = await Promise.all([
-          getAllStudents(),
-          getAllSessions(),
+        // Fetch all data in parallel via server routes (org-scoped)
+        const [studentsRes, sessionsRes] = await Promise.all([
+          fetch("/api/students"),
+          fetch("/api/sessions"),
         ]);
+
+        if (!studentsRes.ok) {
+          throw new Error(await studentsRes.text());
+        }
+        if (!sessionsRes.ok) {
+          throw new Error(await sessionsRes.text());
+        }
+
+        const studentsData = (await studentsRes.json()) as StudentData[];
+        const sessionsData = (await sessionsRes.json()) as SessionData[];
 
         // Calculate stats
         const totalStudents = studentsData?.length || 0;
@@ -75,7 +79,7 @@ export function useDashboardData() {
         // Count active sessions (currently happening)
         const activeSessions = sessionsData?.filter((session: SessionData) => {
           const startTime = new Date(session.starts_at);
-          const endTime = new Date(session.ends_at);
+          const endTime = session.ends_at ? new Date(session.ends_at) : startTime;
           return startTime <= now && endTime >= now;
         }).length || 0;
 

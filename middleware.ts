@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerSession } from "@/lib/supabase/auth";
+import { createServerClient } from "@supabase/ssr";
 
-// Pages that require authentication
 const protectedRoutes = [
   "/dashboard",
   "/dashboard/attendance",
@@ -9,53 +8,79 @@ const protectedRoutes = [
   "/dashboard/settings",
 ];
 
-// Pages that should redirect to dashboard if already authenticated
 const authRoutes = ["/login", "/signup"];
 
-export async function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname;
-
-  // Check if the route is a protected route
-  const isProtectedRoute = protectedRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
-
-  if (isProtectedRoute) {
-    // For protected routes, verify session
-    // Supabase SSR uses multiple cookies for auth, check for any of them
-    const cookieStore = request.cookies;
-    
-    // Supabase sets cookies like: sb-[project-ref]-auth-token, sb-[project-ref]-auth-token-code-verifier, etc
-    const hasAuthCookie = cookieStore
-      .getAll()
-      .some((cookie) => cookie.name.includes("auth"));
-
-    if (!hasAuthCookie) {
-      // No auth cookie found, redirect to login
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("from", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-
-    // Auth cookie exists, allow the request
-    return NextResponse.next();
-  }
-
-  // For all other routes, allow access (including auth routes)
-  // This prevents redirect loops on login/signup pages
-  return NextResponse.next();
+function isProtected(pathname: string) {
+  return protectedRoutes.some((route) => pathname.startsWith(route));
 }
 
-// Configure which routes should be processed by middleware
+function isAuthPage(pathname: string) {
+  return authRoutes.some((route) => pathname.startsWith(route));
+}
+
+export async function middleware(request: NextRequest) {
+  const response = NextResponse.next();
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: (cookiesToSet) => {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const pathname = request.nextUrl.pathname;
+
+  if (isProtected(pathname) && !session) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("from", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (isAuthPage(pathname) && session) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  if (session) {
+    const meta = session.user.app_metadata || {};
+    const userMeta = session.user.user_metadata || {};
+    const orgId = (meta as any).org_id || (userMeta as any).default_org_id || null;
+    const orgName = (meta as any).org_name || (userMeta as any).org_name || "Primary Organization";
+
+    if (orgId) {
+      response.cookies.set("vam_active_org", String(orgId), {
+        path: "/",
+        sameSite: "lax",
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 60 * 60 * 24 * 30,
+      });
+      response.cookies.set("vam_active_org_name", String(orgName), {
+        path: "/",
+        sameSite: "lax",
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 60 * 60 * 24 * 30,
+      });
+    }
+  }
+
+  return response;
+}
+
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public (public folder)
-     */
     "/((?!_next/static|_next/image|favicon.ico|public).*)",
   ],
 };
