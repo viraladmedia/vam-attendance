@@ -194,21 +194,6 @@ export default function AttendancePage() {
   const [query, setQuery] = React.useState("");
   const deferredQuery = React.useDeferredValue(query);
 
-  // Add Teacher modal
-  const [openTeacher, setOpenTeacher] = React.useState(false);
-  const [tName, setTName] = React.useState("");
-  const [tEmail, setTEmail] = React.useState("");
-
-  // Add Student modal
-  const [openStudent, setOpenStudent] = React.useState(false);
-  const [sName, setSName] = React.useState("");
-  const [sEmail, setSEmail] = React.useState("");
-  const [sProgram, setSProgram] = React.useState("");
-  const [sDuration, setSDuration] = React.useState<number | "">("");
-  const [sPerWeek, setSPerWeek] = React.useState<number | "">("");
-  const [sClass, setSClass] = React.useState("");
-  const [sTeacherId, setSTeacherId] = React.useState("");
-
   // Add Session modal
   const [openSession, setOpenSession] = React.useState(false);
   const [sessTeacherId, setSessTeacherId] = React.useState("");
@@ -390,45 +375,6 @@ export default function AttendancePage() {
       attendanceRate: rate,
     };
   }, [students, teachers, sessions, attendance]);
-
-  /* ------------ Adds ------------ */
-  const addTeacher = async () => {
-    if (!sb) return;
-    const name = tName.trim();
-    if (!name) return;
-    await sb.from("teachers").insert({ name, email: tEmail || null });
-    setTName("");
-    setTEmail("");
-    setOpenTeacher(false);
-  };
-
-  const addStudentRPC = async () => {
-    if (!sb) return;
-    if (!sTeacherId) return;
-    const name = sName.trim();
-    if (!name) return;
-    const { error } = await sb.rpc("create_student_and_link", {
-      p_teacher_id: sTeacherId,
-      p_name: name,
-      p_email: sEmail || null,
-      p_program: sProgram || null,
-      p_duration_weeks: sDuration === "" ? null : Number(sDuration),
-      p_sessions_per_week: sPerWeek === "" ? null : Number(sPerWeek),
-      p_class_name: sClass || null,
-    });
-    if (error) {
-      console.error(error);
-      return;
-    }
-    setSName("");
-    setSEmail("");
-    setSProgram("");
-    setSDuration("");
-    setSPerWeek("");
-    setSClass("");
-    setSTeacherId("");
-    setOpenStudent(false);
-  };
 
   const addSessionRPC = async () => {
     if (!sb) return;
@@ -726,12 +672,6 @@ export default function AttendancePage() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" onClick={() => setOpenTeacher(true)}>
-            Add Teacher
-          </Button>
-          <Button variant="outline" onClick={() => setOpenStudent(true)}>
-            Add Student
-          </Button>
           <Button variant="outline" onClick={() => setOpenSession(true)}>
             Add Session
           </Button>
@@ -1127,109 +1067,6 @@ export default function AttendancePage() {
           </CardContent>
         </Card>
       )}
-
-      {/* --------- Add Modals --------- */}
-      <Modal
-        open={openTeacher}
-        onClose={() => setOpenTeacher(false)}
-        title="Add Teacher"
-      >
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Input
-            placeholder="Full name"
-            value={tName}
-            onChange={(e) => setTName(e.target.value)}
-            className="h-9 sm:col-span-2"
-          />
-          <Input
-            placeholder="Email (optional)"
-            value={tEmail}
-            onChange={(e) => setTEmail(e.target.value)}
-            className="h-9 sm:col-span-2"
-          />
-        </div>
-        <div className="mt-3 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setOpenTeacher(false)}>
-            Cancel
-          </Button>
-          <Button onClick={addTeacher}>Save</Button>
-        </div>
-      </Modal>
-
-      <Modal
-        open={openStudent}
-        onClose={() => setOpenStudent(false)}
-        title="Add Student"
-      >
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Input
-            placeholder="Full name"
-            value={sName}
-            onChange={(e) => setSName(e.target.value)}
-            className="h-9 sm:col-span-2"
-          />
-          <Input
-            placeholder="Email (optional)"
-            value={sEmail}
-            onChange={(e) => setSEmail(e.target.value)}
-            className="h-9 sm:col-span-2"
-          />
-          <Input
-            placeholder="Program"
-            value={sProgram}
-            onChange={(e) => setSProgram(e.target.value)}
-            className="h-9 sm:col-span-2"
-          />
-          <Input
-            placeholder="Duration (weeks)"
-            inputMode="numeric"
-            value={sDuration === "" ? "" : sDuration}
-            onChange={(e) =>
-              setSDuration(
-                e.target.value ? Number(e.target.value) : ""
-              )
-            }
-            className="h-9"
-          />
-          <Input
-            placeholder="Sessions / week"
-            inputMode="numeric"
-            value={sPerWeek === "" ? "" : sPerWeek}
-            onChange={(e) =>
-              setSPerWeek(
-                e.target.value ? Number(e.target.value) : ""
-              )
-            }
-            className="h-9"
-          />
-          <Input
-            placeholder="Class name"
-            value={sClass}
-            onChange={(e) => setSClass(e.target.value)}
-            className="h-9 sm:col-span-2"
-          />
-          <div className="sm:col-span-2">
-            <Select value={sTeacherId} onValueChange={setSTeacherId}>
-              <SelectTrigger className="h-9 w-full">
-                <SelectValue placeholder="Assign to teacher" />
-              </SelectTrigger>
-              <SelectContent>
-                {teachers.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="mt-3 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setOpenStudent(false)}>
-            Cancel
-          </Button>
-          <Button onClick={addStudentRPC}>Save</Button>
-        </div>
-      </Modal>
 
       <Modal
         open={openSession}
