@@ -27,6 +27,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
+    // Clear org cookies used by the app
+    cookieStore.set("vam_active_org", "", {
+      path: "/",
+      maxAge: 0,
+    });
+    cookieStore.set("vam_active_org_name", "", {
+      path: "/",
+      maxAge: 0,
+    });
+
     return NextResponse.json(
       { message: "Logout successful" },
       { status: 200 }

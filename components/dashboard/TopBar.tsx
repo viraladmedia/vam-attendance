@@ -38,8 +38,13 @@ export function TopBar({
   }, [accountLabel]);
 
   const onLogout = async () => {
-    try { await getBrowserSupabase(); } catch {}
-    window.location.href = "/login";
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      window.location.href = "/login";
+    }
   };
 
   return (
