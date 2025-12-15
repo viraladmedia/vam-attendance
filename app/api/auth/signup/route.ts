@@ -7,6 +7,9 @@ import { getServiceClient } from "@/lib/supabase/service";
 export async function POST(request: NextRequest) {
   try {
     const { email, password, fullName } = await request.json();
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : undefined;
 
     if (!email || !password || !fullName) {
       return NextResponse.json(
@@ -39,6 +42,7 @@ export async function POST(request: NextRequest) {
         data: {
           full_name: fullName,
         },
+        emailRedirectTo: appUrl ? `${appUrl}/login` : undefined,
       },
     });
 

@@ -14,6 +14,9 @@ type Course = {
   description?: string | null;
   modality: "group" | "1on1";
   lead_teacher_id?: string | null;
+  course_type?: string | null;
+  duration_weeks?: number | null;
+  sessions_per_week?: number | null;
   max_students?: number | null;
   starts_at?: string | null;
   ends_at?: string | null;
@@ -134,15 +137,20 @@ export default function CoursesPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <CardTitle className="text-base">{course.title}</CardTitle>
-                          <div className="mt-1 flex items-center gap-2 text-sm text-slate-600">
-                            <Badge variant="outline" className="border-slate-200">
-                              {course.modality === "group" ? "Group" : "1:1"}
-                            </Badge>
-                            {course.max_students ? (
-                              <span>Cap: {course.max_students}</span>
-                            ) : (
-                              <span className="text-slate-500">No cap</span>
-                            )}
+                      <div className="mt-1 flex items-center gap-2 text-sm text-slate-600">
+                        <Badge variant="outline" className="border-slate-200">
+                          {course.modality === "group" ? "Group" : "1:1"}
+                        </Badge>
+                        {course.course_type && (
+                          <Badge variant="outline" className="border-slate-200">
+                            {course.course_type}
+                          </Badge>
+                        )}
+                        {course.max_students ? (
+                          <span>Cap: {course.max_students}</span>
+                        ) : (
+                          <span className="text-slate-500">No cap</span>
+                        )}
                           </div>
                         </div>
                         <BookOpen className="h-5 w-5 text-slate-400" />
@@ -158,6 +166,12 @@ export default function CoursesPage() {
                           {stats.active !== stats.total ? ` (${stats.active} active)` : ""}
                         </span>
                         <span className="text-slate-500">Lead: {lead}</span>
+                        {course.duration_weeks && (
+                          <span className="text-slate-500">{course.duration_weeks} weeks</span>
+                        )}
+                        {course.sessions_per_week && (
+                          <span className="text-slate-500">{course.sessions_per_week} sessions/week</span>
+                        )}
                         {course.starts_at && (
                           <span className="text-slate-500">
                             Starts {new Date(course.starts_at).toLocaleDateString()}

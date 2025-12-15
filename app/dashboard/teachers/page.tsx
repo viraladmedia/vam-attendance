@@ -34,6 +34,9 @@ export default function TeachersPage() {
   const [courseModality, setCourseModality] = React.useState<"group" | "1on1">("group");
   const [courseLeadTeacher, setCourseLeadTeacher] = React.useState<string>("");
   const [courseMaxStudents, setCourseMaxStudents] = React.useState<string>("");
+  const [courseType, setCourseType] = React.useState("");
+  const [courseDuration, setCourseDuration] = React.useState("");
+  const [courseSessionsPerWeek, setCourseSessionsPerWeek] = React.useState("");
   const [courseSaving, setCourseSaving] = React.useState(false);
   const [courseError, setCourseError] = React.useState<string | null>(null);
   const [courseSuccess, setCourseSuccess] = React.useState<string | null>(null);
@@ -243,6 +246,12 @@ export default function TeachersPage() {
                 onChange={(e) => setCourseTitle(e.target.value)}
                 className="h-9 sm:col-span-2"
               />
+              <Input
+                placeholder="Type (e.g., Cohort, Workshop)"
+                value={courseType}
+                onChange={(e) => setCourseType(e.target.value)}
+                className="h-9 sm:col-span-2"
+              />
               <Select value={courseModality} onValueChange={(v) => setCourseModality(v as "group" | "1on1")}>
                 <SelectTrigger className="h-9 w-full">
                   <SelectValue placeholder="Modality" />
@@ -269,6 +278,20 @@ export default function TeachersPage() {
                 inputMode="numeric"
                 value={courseMaxStudents}
                 onChange={(e) => setCourseMaxStudents(e.target.value)}
+                className="h-9"
+              />
+              <Input
+                placeholder="Duration (weeks)"
+                inputMode="numeric"
+                value={courseDuration}
+                onChange={(e) => setCourseDuration(e.target.value)}
+                className="h-9"
+              />
+              <Input
+                placeholder="Sessions per week"
+                inputMode="numeric"
+                value={courseSessionsPerWeek}
+                onChange={(e) => setCourseSessionsPerWeek(e.target.value)}
                 className="h-9"
               />
             </div>
@@ -301,6 +324,9 @@ export default function TeachersPage() {
                       lead_teacher_id: courseLeadTeacher || null,
                     };
                     if (courseMaxStudents) payload.max_students = Number(courseMaxStudents);
+                    if (courseType) payload.course_type = courseType.trim();
+                    if (courseDuration) payload.duration_weeks = Number(courseDuration);
+                    if (courseSessionsPerWeek) payload.sessions_per_week = Number(courseSessionsPerWeek);
                     const res = await fetch("/api/courses", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
@@ -310,6 +336,9 @@ export default function TeachersPage() {
                     setCourseSuccess("Course created");
                     setCourseTitle("");
                     setCourseMaxStudents("");
+                    setCourseType("");
+                    setCourseDuration("");
+                    setCourseSessionsPerWeek("");
                     setOpenCourse(false);
                   } catch (err) {
                     setCourseError(err instanceof Error ? err.message : "Failed to create course");
