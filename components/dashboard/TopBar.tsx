@@ -4,7 +4,10 @@
 import * as React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { ChevronDown, LogOut, Settings, User } from "lucide-react";
@@ -48,10 +51,10 @@ export function TopBar({
   };
 
   return (
-    <div className="sticky top-0 z-20 -mx-2 sm:mx-0 bg-white/70 backdrop-blur border-b border-white/60">
-      <div className="px-2 sm:px-0 py-3 flex items-center gap-3">
+    <div className="sticky top-0 z-20 -mx-2 sm:mx-0 bg-white/85 backdrop-blur border-b border-white/60">
+      <div className="px-3 sm:px-0 py-3 flex items-center gap-3 flex-wrap sm:flex-nowrap">
         {/* Left: Title / Subtitle */}
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="text-[11px] uppercase tracking-widest/relaxed text-slate-500">
             <span suppressHydrationWarning>{computedSubtitle}</span>
           </div>
@@ -61,14 +64,14 @@ export function TopBar({
         </div>
 
         {/* Right: Profile menu only (thresholds moved to ControlsBar) */}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="w-full sm:w-auto sm:ml-auto flex items-center justify-between sm:justify-end gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 aria-label="Open profile menu"
                 className={cn(
                   "inline-flex items-center gap-2 rounded-full border border-white/60",
-                  "bg-white/80 px-2.5 py-1.5 hover:bg-white transition"
+                  "bg-white px-2.5 py-1.5 hover:bg-slate-50 transition w-full sm:w-auto justify-between sm:justify-center"
                 )}
               >
                 <Avatar className="h-7 w-7">

@@ -10,6 +10,11 @@ export function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
+  // Close the mobile menu when the route changes
+  React.useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   const isActive = (href: string) => {
     return pathname === href || pathname.startsWith(href + "/");
   };
@@ -23,11 +28,11 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 gap-3">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+        <Link href="/" className="flex items-center gap-2 font-bold text-lg min-w-0">
           <div className="h-8 w-8 rounded-md bg-gradient-to-r from-fuchsia-600 to-cyan-600" />
-          <span className="hidden sm:inline">VAM Attendance</span>
+          <span className="hidden sm:inline truncate">VAM Attendance</span>
         </Link>
 
         {/* Desktop Navigation */}
@@ -37,7 +42,7 @@ export function Header() {
               key={item.href}
               href={item.href}
               className={cn(
-                "px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                "px-3 py-2 rounded-md text-sm font-medium transition-colors",
                 isActive(item.href)
                   ? "bg-slate-100 text-slate-900"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
@@ -48,38 +53,34 @@ export function Header() {
           ))}
         </nav>
 
-        {/* CTA Buttons */}
-        <div className="flex items-center gap-3">
+        {/* CTA Buttons + Mobile Toggle */}
+        <div className="flex items-center gap-2">
           <Link
             href="/login"
-            className="hidden sm:inline-flex px-4 py-2 rounded-md text-sm font-medium text-slate-900 hover:bg-slate-50"
+            className="hidden sm:inline-flex px-3 py-2 rounded-md text-sm font-medium text-slate-900 hover:bg-slate-50"
           >
             Login
           </Link>
           <Link
             href="/signup"
-            className="inline-flex px-4 py-2 rounded-md text-sm font-medium bg-gradient-to-r from-fuchsia-600 to-cyan-600 text-white hover:opacity-90 transition"
+            className="hidden xs:inline-flex px-3 py-2 rounded-md text-sm font-medium bg-gradient-to-r from-fuchsia-600 to-cyan-600 text-white hover:opacity-90 transition"
           >
             Get Started
           </Link>
-
-          {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-2 rounded-md hover:bg-slate-100"
+            aria-label="Toggle navigation"
+            aria-expanded={mobileMenuOpen}
           >
-            {mobileMenuOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white px-4 py-3">
+        <div className="md:hidden border-t border-slate-200 bg-white px-4 py-3 shadow-md">
           <nav className="flex flex-col gap-2">
             {navItems.map((item) => (
               <Link
@@ -96,13 +97,22 @@ export function Header() {
                 {item.label}
               </Link>
             ))}
-            <Link
-              href="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="px-4 py-2 rounded-md text-sm font-medium text-slate-900 hover:bg-slate-50"
-            >
-              Login
-            </Link>
+            <div className="flex flex-col gap-2 pt-2">
+              <Link
+                href="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-4 py-2 rounded-md text-sm font-medium text-slate-900 hover:bg-slate-50"
+              >
+                Login
+              </Link>
+              <Link
+                href="/signup"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-4 py-2 rounded-md text-sm font-medium text-white bg-gradient-to-r from-fuchsia-600 to-cyan-600 text-center shadow-sm"
+              >
+                Get Started
+              </Link>
+            </div>
           </nav>
         </div>
       )}
