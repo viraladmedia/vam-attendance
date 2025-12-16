@@ -9,11 +9,11 @@ const updateSchema = z.object({
   notes: z.string().optional(),
 });
 
-type RouteParams = { params: { id: string } };
+type RouteParamsPromise = { params: Promise<{ id: string }> };
 
-export async function GET(_: NextRequest, { params }: RouteParams) {
+export async function GET(_: NextRequest, { params }: RouteParamsPromise) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const { supabase, orgId } = await getRouteContext();
     const { data, error } = await supabase
       .from("attendance")
@@ -29,9 +29,9 @@ export async function GET(_: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(request: NextRequest, { params }: RouteParamsPromise) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const payload = updateSchema.parse(body);
     const { supabase, session, orgId } = await getRouteContext();
@@ -52,9 +52,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function DELETE(_: NextRequest, { params }: RouteParams) {
+export async function DELETE(_: NextRequest, { params }: RouteParamsPromise) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const { supabase, session, orgId } = await getRouteContext();
     const { error } = await supabase
       .from("attendance")
