@@ -339,7 +339,17 @@ export default function StudentsPage() {
                         status: enrollStatus,
                       }),
                     });
-                    if (!res.ok) throw new Error(await res.text());
+                    if (!res.ok) {
+                      const raw = await res.text();
+                      try {
+                        const parsed = JSON.parse(raw);
+                        const msg = parsed.error || parsed.message || raw;
+                        const hint = parsed.hint ? ` (${parsed.hint})` : "";
+                        throw new Error(`${msg}${hint}`);
+                      } catch {
+                        throw new Error(raw || "Failed to enroll student");
+                      }
+                    }
                     setEnrollSuccess("Enrollment created");
                     setOpenEnroll(false);
                   } catch (err) {

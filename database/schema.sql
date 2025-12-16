@@ -166,7 +166,12 @@ RETURNS uuid LANGUAGE sql STABLE AS $$
 $$;
 
 CREATE OR REPLACE FUNCTION public.app_has_org_role(check_org uuid, roles text[])
-RETURNS boolean LANGUAGE sql STABLE AS $$
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
   SELECT
     EXISTS (
       SELECT 1 FROM memberships m
@@ -185,7 +190,12 @@ RETURNS boolean LANGUAGE sql STABLE AS $$
 $$;
 
 CREATE OR REPLACE FUNCTION public.app_is_org_member(check_org uuid)
-RETURNS boolean LANGUAGE sql STABLE AS $$
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
   SELECT
     EXISTS (
       SELECT 1 FROM memberships m
