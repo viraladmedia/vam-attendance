@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,31 @@ type Student = {
 
 type Teacher = { id: string; name: string };
 type Course = { id: string; title: string; modality: "group" | "1on1" };
+
+function EnrollModal({
+  open,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  if (!open) return null;
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-center justify-center" onMouseDown={onClose}>
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+      <div
+        className="relative w-full max-w-xl rounded-2xl border bg-white p-4 shadow-xl"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 export default function StudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([]);
@@ -235,136 +261,128 @@ export default function StudentsPage() {
         </div>
       )}
 
-      {openEnroll && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenEnroll(false)}>
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-          <div
-            className="relative w-full max-w-xl rounded-2xl border bg-white p-4 shadow-xl"
-            onMouseDown={(e) => e.stopPropagation()}
+      <EnrollModal open={openEnroll} onClose={() => setOpenEnroll(false)}>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-slate-800">Enroll Student into Course</h3>
+          <button
+            aria-label="Close"
+            className="h-8 w-8 rounded-md hover:bg-slate-100"
+            onClick={() => setOpenEnroll(false)}
           >
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-800">Enroll Student into Course</h3>
-              <button
-                aria-label="Close"
-                className="h-8 w-8 rounded-md hover:bg-slate-100"
-                onClick={() => setOpenEnroll(false)}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Select value={enrollStudentId} onValueChange={setEnrollStudentId}>
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue placeholder="Select student" />
-                </SelectTrigger>
-                <SelectContent>
-                  {students.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={enrollCourseId} onValueChange={setEnrollCourseId}>
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue placeholder="Select course" />
-                </SelectTrigger>
-                <SelectContent>
-                  {courses.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.title} ({c.modality === "group" ? "Group" : "1:1"})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={enrollTeacherId ?? ""} onValueChange={(v) => setEnrollTeacherId(v || null)}>
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue placeholder="Assign teacher (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
-                  {teachers.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={enrollStatus} onValueChange={(v) => setEnrollStatus(v as typeof enrollStatus)}>
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="paused">Paused</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="dropped">Dropped</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {enrollSuccess && (
-              <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                {enrollSuccess}
-              </div>
-            )}
-            {enrollError && (
-              <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {enrollError}
-              </div>
-            )}
-
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpenEnroll(false)}>
-                Cancel
-              </Button>
-              <Button
-                disabled={enrollSaving || !enrollStudentId || !enrollCourseId}
-                onClick={async () => {
-                  try {
-                    setEnrollSaving(true);
-                    setEnrollError(null);
-                    setEnrollSuccess(null);
-                    const res = await fetch("/api/enrollments", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        student_id: enrollStudentId,
-                        course_id: enrollCourseId,
-                        teacher_id: enrollTeacherId,
-                        status: enrollStatus,
-                      }),
-                    });
-                    if (!res.ok) {
-                      const raw = await res.text();
-                      try {
-                        const parsed = JSON.parse(raw);
-                        const msg = parsed.error || parsed.message || raw;
-                        const hint = parsed.hint ? ` (${parsed.hint})` : "";
-                        throw new Error(`${msg}${hint}`);
-                      } catch {
-                        throw new Error(raw || "Failed to enroll student");
-                      }
-                    }
-                    setEnrollSuccess("Enrollment created");
-                    setOpenEnroll(false);
-                  } catch (err) {
-                    setEnrollError(err instanceof Error ? err.message : "Failed to enroll student");
-                  } finally {
-                    setEnrollSaving(false);
-                  }
-                }}
-              >
-                {enrollSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enroll"}
-              </Button>
-            </div>
-          </div>
+            ✕
+          </button>
         </div>
-      )}
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Select value={enrollStudentId} onValueChange={setEnrollStudentId}>
+            <SelectTrigger className="h-9 w-full">
+              <SelectValue placeholder="Select student" />
+            </SelectTrigger>
+            <SelectContent>
+              {students.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={enrollCourseId} onValueChange={setEnrollCourseId}>
+            <SelectTrigger className="h-9 w-full">
+              <SelectValue placeholder="Select course" />
+            </SelectTrigger>
+            <SelectContent>
+              {courses.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.title} ({c.modality === "group" ? "Group" : "1:1"})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={enrollTeacherId ?? ""} onValueChange={(v) => setEnrollTeacherId(v || null)}>
+            <SelectTrigger className="h-9 w-full">
+              <SelectValue placeholder="Assign teacher (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Unassigned</SelectItem>
+              {teachers.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={enrollStatus} onValueChange={(v) => setEnrollStatus(v as typeof enrollStatus)}>
+            <SelectTrigger className="h-9 w-full">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="paused">Paused</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="dropped">Dropped</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {enrollSuccess && (
+          <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            {enrollSuccess}
+          </div>
+        )}
+        {enrollError && (
+          <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {enrollError}
+          </div>
+        )}
+
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setOpenEnroll(false)}>
+            Cancel
+          </Button>
+          <Button
+            disabled={enrollSaving || !enrollStudentId || !enrollCourseId}
+            onClick={async () => {
+              try {
+                setEnrollSaving(true);
+                setEnrollError(null);
+                setEnrollSuccess(null);
+                const res = await fetch("/api/enrollments", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    student_id: enrollStudentId,
+                    course_id: enrollCourseId,
+                    teacher_id: enrollTeacherId,
+                    status: enrollStatus,
+                  }),
+                });
+                if (!res.ok) {
+                  const raw = await res.text();
+                  try {
+                    const parsed = JSON.parse(raw);
+                    const msg = parsed.error || parsed.message || raw;
+                    const hint = parsed.hint ? ` (${parsed.hint})` : "";
+                    throw new Error(`${msg}${hint}`);
+                  } catch {
+                    throw new Error(raw || "Failed to enroll student");
+                  }
+                }
+                setEnrollSuccess("Enrollment created");
+                setOpenEnroll(false);
+              } catch (err) {
+                setEnrollError(err instanceof Error ? err.message : "Failed to enroll student");
+              } finally {
+                setEnrollSaving(false);
+              }
+            }}
+          >
+            {enrollSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enroll"}
+          </Button>
+        </div>
+      </EnrollModal>
     </div>
   );
 }

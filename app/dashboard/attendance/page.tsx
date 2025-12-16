@@ -179,7 +179,7 @@ const fmtDate = (iso: string) => {
 
 /* Main Page Component */
 export default function AttendancePage() {
-  const [tab, setTab] = React.useState<TabKey>("overview");
+  const [tab] = React.useState<TabKey>("sessions");
 
   const sb = React.useMemo(() => getBrowserSupabase(), []);
 
@@ -644,25 +644,6 @@ export default function AttendancePage() {
           </Button>
           <Button onClick={() => setOpenAttend(true)}>Add Attendance</Button>
         </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="mb-3 flex gap-2">
-        {(["overview", "teachers", "students", "sessions"] as TabKey[]).map(
-          (k) => (
-            <button
-              key={k}
-              onClick={() => setTab(k)}
-              className={`rounded-md border px-3 py-1.5 ${
-                tab === k
-                  ? "bg-slate-900 text-white"
-                  : "bg-white hover:bg-slate-50"
-              }`}
-            >
-              {k[0].toUpperCase() + k.slice(1)}
-            </button>
-          )
-        )}
       </div>
 
       {/* Panels */}
