@@ -37,7 +37,7 @@ export default function StudentsPage() {
   const [openEnroll, setOpenEnroll] = React.useState(false);
   const [enrollStudentId, setEnrollStudentId] = React.useState<string>("");
   const [enrollCourseId, setEnrollCourseId] = React.useState<string>("");
-  const [enrollTeacherId, setEnrollTeacherId] = React.useState<string>("");
+  const [enrollTeacherId, setEnrollTeacherId] = React.useState<string | null>(null);
   const [enrollStatus, setEnrollStatus] = React.useState<"active" | "paused" | "completed" | "dropped">("active");
   const [enrollSaving, setEnrollSaving] = React.useState(false);
   const [enrollError, setEnrollError] = React.useState<string | null>(null);
@@ -280,7 +280,7 @@ export default function StudentsPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={enrollTeacherId} onValueChange={setEnrollTeacherId}>
+              <Select value={enrollTeacherId ?? ""} onValueChange={(v) => setEnrollTeacherId(v || null)}>
                 <SelectTrigger className="h-9 w-full">
                   <SelectValue placeholder="Assign teacher (optional)" />
                 </SelectTrigger>
@@ -335,7 +335,7 @@ export default function StudentsPage() {
                       body: JSON.stringify({
                         student_id: enrollStudentId,
                         course_id: enrollCourseId,
-                        teacher_id: enrollTeacherId || null,
+                        teacher_id: enrollTeacherId,
                         status: enrollStatus,
                       }),
                     });
