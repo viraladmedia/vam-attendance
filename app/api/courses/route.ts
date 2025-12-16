@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getRouteContext } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
+import { respondWithError } from "@/lib/api/errors";
 
 const courseSchema = z.object({
   title: z.string().min(1),
@@ -17,19 +18,6 @@ const courseSchema = z.object({
   ends_at: z.string().datetime().optional(),
 });
 
-function handleError(error: unknown) {
-  console.error("Courses API error:", error);
-  if (error instanceof z.ZodError) {
-    return NextResponse.json({ error: "Validation failed", details: error.errors }, { status: 400 });
-  }
-  if (error instanceof Error) {
-    if (error.message === "unauthorized") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (error.message === "org_not_set") return NextResponse.json({ error: "Organization not set" }, { status: 400 });
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  return NextResponse.json({ error: JSON.stringify(error) || "Unexpected error" }, { status: 500 });
-}
-
 export async function GET() {
   try {
     const { supabase, orgId } = await getRouteContext();
@@ -41,7 +29,7 @@ export async function GET() {
     if (error) throw error;
     return NextResponse.json(data ?? []);
   } catch (error) {
-    return handleError(error);
+    return respondWithError(error, { action: "list-courses" });
   }
 }
 
@@ -68,6 +56,6 @@ export async function POST(request: Request) {
     await logAudit(supabase, orgId, session.user.id, "create", "course", data.id, { title: data.title });
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
-    return handleError(error);
+    return respondWithError(error, { action: "create-course" });
   }
 }

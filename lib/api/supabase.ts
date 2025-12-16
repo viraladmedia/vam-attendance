@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { ApiError } from "./errors";
 
 export type RouteContext = {
   supabase: SupabaseClient;
@@ -11,34 +12,85 @@ export type RouteContext = {
 export async function getRouteContext(): Promise<RouteContext> {
   const cookieStore = await cookies();
   const cookieOrg = cookieStore.get("vam_active_org")?.value || null;
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        },
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnon) {
+    throw new ApiError("Supabase env vars missing", 500, "SUPABASE_CONFIG_MISSING");
+  }
+
+  const supabase = createServerClient(supabaseUrl, supabaseAnon, {
+    cookies: {
+      getAll: () => cookieStore.getAll(),
+      setAll: (cookiesToSet) => {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          cookieStore.set(name, value, options);
+        });
       },
-    }
-  );
+    },
+  });
 
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
   if (!session) {
-    throw new Error("unauthorized");
+    throw new ApiError("Unauthorized", 401, "UNAUTHENTICATED");
   }
 
   const meta = session.user.app_metadata || {};
   const userMeta = session.user.user_metadata || {};
-  const orgId = (meta as any).org_id || (userMeta as any).default_org_id || cookieOrg;
+  let orgId = (meta as any).org_id || (userMeta as any).default_org_id || cookieOrg;
+
+  // Fallback: pick the first org the user owns if metadata/cookie missing.
   if (!orgId) {
-    throw new Error("org_not_set");
+    const { data: orgRows, error: orgErr } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("owner_id", session.user.id)
+      .order("created_at", { ascending: true })
+      .limit(1);
+
+    if (orgErr) {
+      // Surface the underlying RLS/permission issue
+      throw orgErr;
+    }
+
+    if (orgRows && orgRows.length > 0) {
+      orgId = orgRows[0].id as string;
+      cookieStore.set("vam_active_org", orgId, {
+        sameSite: "lax",
+        path: "/",
+        httpOnly: true,
+      });
+    }
+  }
+
+  // Fallback 2: pick the first org where the user has a membership
+  if (!orgId) {
+    const { data: memberRows, error: memberErr } = await supabase
+      .from("memberships")
+      .select("org_id")
+      .eq("user_id", session.user.id)
+      .order("created_at", { ascending: true })
+      .limit(1);
+
+    if (memberErr) {
+      throw memberErr;
+    }
+
+    if (memberRows && memberRows.length > 0) {
+      orgId = memberRows[0].org_id as string;
+      cookieStore.set("vam_active_org", orgId, {
+        sameSite: "lax",
+        path: "/",
+        httpOnly: true,
+      });
+    }
+  }
+
+  if (!orgId) {
+    throw new ApiError("Organization not set for user", 400, "ORG_NOT_SET");
   }
 
   return { supabase, session, orgId: String(orgId) };

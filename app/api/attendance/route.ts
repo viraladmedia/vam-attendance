@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getRouteContext } from "@/lib/api/supabase";
 import { logAudit } from "@/lib/api/audit";
 import { consumeRateLimit } from "@/lib/api/rate-limit";
+import { respondWithError } from "@/lib/api/errors";
 
 const attendanceSchema = z.object({
   session_id: z.string().uuid(),
@@ -10,22 +11,6 @@ const attendanceSchema = z.object({
   status: z.enum(["present", "absent", "late"]),
   notes: z.string().optional(),
 });
-
-function handleError(error: unknown) {
-  if (error instanceof z.ZodError) {
-    return NextResponse.json({ error: "Validation failed", details: error.errors }, { status: 400 });
-  }
-  if (error instanceof Error) {
-    if (error.message === "unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error.message === "org_not_set") {
-      return NextResponse.json({ error: "Organization not set on user" }, { status: 400 });
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  return NextResponse.json({ error: "Unexpected error" }, { status: 500 });
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -47,7 +32,7 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
     return NextResponse.json(data ?? []);
   } catch (error) {
-    return handleError(error);
+    return respondWithError(error, { action: "list-attendance" });
   }
 }
 
@@ -80,6 +65,6 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
-    return handleError(error);
+    return respondWithError(error, { action: "create-attendance" });
   }
 }
