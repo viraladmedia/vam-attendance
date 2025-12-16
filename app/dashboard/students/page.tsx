@@ -283,17 +283,17 @@ export default function StudentsPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={enrollTeacherId ?? ""} onValueChange={(v) => setEnrollTeacherId(v || null)}>
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue placeholder="Assign teacher (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
-                  {teachers.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
+          <Select value={enrollTeacherId ?? "none"} onValueChange={(v) => setEnrollTeacherId(v === "none" ? null : v)}>
+            <SelectTrigger className="h-9 w-full">
+              <SelectValue placeholder="Assign teacher (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Unassigned</SelectItem>
+              {teachers.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                </SelectItem>
+              ))}
                 </SelectContent>
               </Select>
 
