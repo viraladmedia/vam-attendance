@@ -2,14 +2,14 @@
 "use client";
 
 import * as React from "react";
-import { useAccount } from "@/components/dashboard/AccountContext";
+import Link from "next/link";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Calendar, TrendingUp, Clock, AlertCircle, Loader } from "lucide-react";
 import { useDashboardData } from "@/lib/hooks/useDashboardData";
+import { Button } from "@/components/ui/button";
 
 export default function OverviewPage() {
-  const { accountId } = useAccount();
   const { stats, sessions } = useDashboardData();
 
   // Format stats for display
@@ -48,9 +48,19 @@ export default function OverviewPage() {
     },
   ];
 
+  const upcomingSessions = React.useMemo(
+    () =>
+      sessions
+        .slice()
+        .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
+        .filter((s) => new Date(s.starts_at).getTime() >= Date.now()),
+    [sessions]
+  );
+  const nextSession = upcomingSessions[0];
+
   return (
     <div className="w-full">
-      <TopBar subtitle="Overview" title="Campaign Performance" />
+      <TopBar subtitle="Overview" title="Dashboard Overview" />
 
       {/* Loading State */}
       {stats.loading && (
@@ -103,13 +113,19 @@ export default function OverviewPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Upcoming Sessions */}
           <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Upcoming Sessions</CardTitle>
+            <CardHeader className="flex items-center justify-between">
+              <div>
+                <CardTitle>Upcoming Sessions</CardTitle>
+                <p className="text-xs text-slate-500">Next up for this month</p>
+              </div>
+              <Link href="/dashboard/sessions" className="text-sm font-medium text-fuchsia-600 hover:underline">
+                View all
+              </Link>
             </CardHeader>
             <CardContent>
-              {sessions.length > 0 ? (
+              {upcomingSessions.length > 0 ? (
                 <div className="space-y-3">
-                  {sessions.slice(0, 5).map((session) => {
+                  {upcomingSessions.slice(0, 6).map((session) => {
                     const startTime = new Date(session.starts_at);
                     const timeStr = startTime.toLocaleTimeString("en-US", {
                       hour: "2-digit",
@@ -128,23 +144,22 @@ export default function OverviewPage() {
                         <div className="flex items-start justify-between">
                           <div>
                             <p className="font-semibold text-slate-900">
-                              {session.title}
+                              {session.title || "Session"}
                             </p>
-                            <p className="text-sm text-slate-600 mt-1">
-                              {session.class_name}
+                            <p className="text-xs text-slate-500 mt-1">
+                              {dateStr} • {timeStr}
                             </p>
-                            {session.description && (
-                              <p className="text-xs text-slate-500 mt-1">
-                                {session.description}
+                            {session.class_name && (
+                              <p className="text-xs text-slate-600 mt-1">
+                                {session.class_name}
                               </p>
                             )}
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium text-slate-900">
-                              {timeStr}
+                          {session.description && (
+                            <p className="ml-3 max-w-[220px] text-xs text-slate-500 line-clamp-3">
+                              {session.description}
                             </p>
-                            <p className="text-xs text-slate-500">{dateStr}</p>
-                          </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -165,18 +180,18 @@ export default function OverviewPage() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <button className="w-full px-4 py-2 rounded-lg border border-slate-300 text-slate-900 font-medium hover:bg-slate-50 transition">
-                Mark Attendance
-              </button>
-              <button className="w-full px-4 py-2 rounded-lg border border-slate-300 text-slate-900 font-medium hover:bg-slate-50 transition">
-                Generate Report
-              </button>
-              <button className="w-full px-4 py-2 rounded-lg border border-slate-300 text-slate-900 font-medium hover:bg-slate-50 transition">
-                Create Session
-              </button>
-              <button className="w-full px-4 py-2 rounded-lg border border-slate-300 text-slate-900 font-medium hover:bg-slate-50 transition">
-                Manage Students
-              </button>
+              <Button asChild variant="outline" className="w-full justify-center">
+                <Link href="/dashboard/attendance">Mark Attendance</Link>
+              </Button>
+              <Button asChild variant="outline" className="w-full justify-center">
+                <Link href="/dashboard/sessions">Create Session</Link>
+              </Button>
+              <Button asChild variant="outline" className="w-full justify-center">
+                <Link href="/dashboard/students">Manage Students</Link>
+              </Button>
+              <Button asChild variant="outline" className="w-full justify-center">
+                <Link href="/dashboard/courses">Manage Courses</Link>
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -190,6 +205,29 @@ export default function OverviewPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
+              {nextSession && (
+                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <AlertCircle className="h-5 w-5 text-slate-600 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium text-slate-900">Next session</p>
+                    <p className="text-sm text-slate-700">
+                      {nextSession.title || "Session"} •{" "}
+                      {new Date(nextSession.starts_at).toLocaleString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                  <Link
+                    href="/dashboard/sessions"
+                    className="text-xs font-semibold text-fuchsia-600 hover:underline"
+                  >
+                    Open
+                  </Link>
+                </div>
+              )}
               {stats.avgAttendanceRate < 80 && (
                 <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                   <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
