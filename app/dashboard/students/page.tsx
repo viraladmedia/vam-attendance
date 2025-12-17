@@ -26,11 +26,13 @@ type Student = {
 
 type Teacher = { id: string; name: string };
 type Course = { id: string; title: string; modality: "group" | "1on1" };
+type Session = { id: string; title?: string | null; starts_at: string };
 
 export default function StudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([]);
   const [teachers, setTeachers] = React.useState<Teacher[]>([]);
   const [courses, setCourses] = React.useState<Course[]>([]);
+  const [sessions, setSessions] = React.useState<Session[]>([]);
   const [query, setQuery] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -71,20 +73,24 @@ export default function StudentsPage() {
       try {
         setLoading(true);
         setError(null);
-        const [sRes, tRes, cRes] = await Promise.all([
+        const [sRes, tRes, cRes, ssRes] = await Promise.all([
           fetch("/api/students", { cache: "no-store" }),
           fetch("/api/teachers", { cache: "no-store" }),
           fetch("/api/courses", { cache: "no-store" }),
+          fetch("/api/sessions", { cache: "no-store" }),
         ]);
         if (!sRes.ok) throw new Error(await sRes.text());
         if (!tRes.ok) throw new Error(await tRes.text());
         if (!cRes.ok) throw new Error(await cRes.text());
+        if (!ssRes.ok) throw new Error(await ssRes.text());
         const sData = (await sRes.json()) as Student[];
         const tData = (await tRes.json()) as Teacher[];
         const cData = (await cRes.json()) as Course[];
+        const ssData = (await ssRes.json()) as Session[];
         setStudents(sData);
         setTeachers(tData);
         setCourses(cData);
+        setSessions(ssData);
         if (sData.length) setEnrollStudentId(sData[0].id);
         if (cData.length) setEnrollCourseId(cData[0].id);
         if (tData.length) setEnrollTeacherId(tData[0].id);
