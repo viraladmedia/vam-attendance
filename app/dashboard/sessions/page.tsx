@@ -18,16 +18,19 @@ type Session = {
   id: string;
   title?: string | null;
   teacher_id?: string | null;
+  course_id?: string | null;
   starts_at: string;
 };
 
 type Teacher = { id: string; name: string };
+type Course = { id: string; title: string; lead_teacher_id?: string | null };
 
 type Attendance = { session_id: string; status: string };
 
 export default function SessionsPage() {
   const [sessions, setSessions] = React.useState<Session[]>([]);
   const [teachers, setTeachers] = React.useState<Teacher[]>([]);
+  const [courses, setCourses] = React.useState<Course[]>([]);
   const [attendance, setAttendance] = React.useState<Attendance[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -39,6 +42,7 @@ export default function SessionsPage() {
   });
   const [openNew, setOpenNew] = React.useState(false);
   const [newTeacher, setNewTeacher] = React.useState<string>("");
+  const [newCourseId, setNewCourseId] = React.useState<string>("");
   const [newTitle, setNewTitle] = React.useState("");
   const [newStartsAt, setNewStartsAt] = React.useState("");
   const [newSaving, setNewSaving] = React.useState(false);
@@ -49,17 +53,20 @@ export default function SessionsPage() {
       try {
         setLoading(true);
         setError(null);
-        const [sRes, tRes, aRes] = await Promise.all([
+        const [sRes, tRes, aRes, cRes] = await Promise.all([
           fetch("/api/sessions", { cache: "no-store" }),
           fetch("/api/teachers", { cache: "no-store" }),
           fetch("/api/attendance", { cache: "no-store" }),
+          fetch("/api/courses", { cache: "no-store" }),
         ]);
         if (!sRes.ok) throw new Error(await sRes.text());
         if (!tRes.ok) throw new Error(await tRes.text());
         if (!aRes.ok) throw new Error(await aRes.text());
+        if (!cRes.ok) throw new Error(await cRes.text());
         setSessions((await sRes.json()) as Session[]);
         setTeachers((await tRes.json()) as Teacher[]);
         setAttendance((await aRes.json()) as Attendance[]);
+        setCourses((await cRes.json()) as Course[]);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load sessions");
       } finally {
@@ -340,6 +347,27 @@ export default function SessionsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <Select
+                value={newCourseId || "none"}
+                onValueChange={(v) => {
+                  const resolved = v === "none" ? "" : v;
+                  setNewCourseId(resolved);
+                  const course = courses.find((c) => c.id === resolved);
+                  if (course?.lead_teacher_id) setNewTeacher(course.lead_teacher_id);
+                }}
+              >
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Course (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No course</SelectItem>
+                  {courses.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <input
                 className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-slate-400"
                 placeholder="Title (optional)"
@@ -370,6 +398,7 @@ export default function SessionsPage() {
                     setNewError(null);
                     const payload: any = {
                       teacher_id: newTeacher || undefined,
+                      course_id: newCourseId || undefined,
                       title: newTitle.trim() || undefined,
                       starts_at: new Date(newStartsAt).toISOString(),
                     };

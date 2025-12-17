@@ -7,6 +7,7 @@ import { respondWithError } from "@/lib/api/errors";
 
 const sessionSchema = z.object({
   teacher_id: z.string().uuid().optional().nullable(),
+  course_id: z.string().uuid().optional().nullable(),
   title: z.string().min(1).optional().nullable(),
   starts_at: z.string().min(1),
   ends_at: z.string().optional(),
@@ -52,6 +53,26 @@ export async function POST(request: Request) {
       .single();
 
     if (error) throw error;
+
+    // Seed attendance placeholders for enrolled students in the same course
+    if (payload.course_id) {
+      const { data: enrollments, error: enrollErr } = await supabase
+        .from("enrollments")
+        .select("student_id")
+        .eq("org_id", orgId)
+        .eq("course_id", payload.course_id);
+      if (enrollErr) throw enrollErr;
+      if (enrollments && enrollments.length) {
+        const rows = enrollments.map((en) => ({
+          org_id: orgId,
+          session_id: data.id,
+          student_id: en.student_id,
+          status: "absent" as const,
+        }));
+        await supabase.from("attendance").upsert(rows, { onConflict: "org_id,session_id,student_id" });
+      }
+    }
+
     await logAudit(supabase, orgId, session.user.id, "create", "session", data.id, { title: data.title });
     return NextResponse.json(data, { status: 201 });
   } catch (error) {

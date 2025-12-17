@@ -120,8 +120,34 @@ export async function POST(request: Request) {
             };
           });
 
-    const { error: sessionError } = await supabase.from("sessions").insert(sessionRows);
+    const { data: insertedSessions, error: sessionError } = await supabase
+      .from("sessions")
+      .insert(sessionRows)
+      .select("id");
     if (sessionError) throw sessionError;
+    if (sessionRows.length && insertedSessions) {
+      const { data: enrollments, error: enrollErr } = await supabase
+        .from("enrollments")
+        .select("student_id")
+        .eq("org_id", orgId)
+        .eq("course_id", data.id);
+      if (enrollErr) throw enrollErr;
+      if (enrollments?.length) {
+        const attendanceSeed = insertedSessions.flatMap((sess) =>
+          enrollments.map((en) => ({
+            org_id: orgId,
+            session_id: sess.id,
+            student_id: en.student_id,
+            status: "absent" as const,
+          }))
+        );
+        if (attendanceSeed.length) {
+          await supabase.from("attendance").upsert(attendanceSeed, {
+            onConflict: "org_id,session_id,student_id",
+          });
+        }
+      }
+    }
 
     await logAudit(supabase, orgId, session.user.id, "create", "course", data.id, { title: data.title });
     return NextResponse.json(data, { status: 201 });
