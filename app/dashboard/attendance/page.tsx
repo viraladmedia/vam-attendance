@@ -188,6 +188,7 @@ export default function AttendancePage() {
   const [students, setStudents] = React.useState<Student[]>([]);
   const [sessions, setSessions] = React.useState<Session[]>([]);
   const [attendance, setAttendance] = React.useState<Attendance[]>([]);
+  const [viewMode, setViewMode] = React.useState<"list" | "calendar">("list");
 
   // Filters & search
   const [teacherFilter, setTeacherFilter] = React.useState<string>("all");
@@ -685,6 +686,24 @@ export default function AttendancePage() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          <div className="flex rounded-md border border-slate-200 bg-white p-0.5">
+            <Button
+              size="sm"
+              variant={viewMode === "list" ? "default" : "ghost"}
+              className="px-3"
+              onClick={() => setViewMode("list")}
+            >
+              List
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "calendar" ? "default" : "ghost"}
+              className="px-3"
+              onClick={() => setViewMode("calendar")}
+            >
+              Calendar
+            </Button>
+          </div>
           <Button
             variant="outline"
             onClick={() => {
@@ -908,93 +927,185 @@ export default function AttendancePage() {
       )}
 
       {tab === "sessions" && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">
-              Sessions & Attendance
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="overflow-x-auto pt-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-slate-500">
-                  <th className="py-2 pr-3">Title</th>
-                  <th className="py-2 pr-3">Teacher</th>
-                  <th className="py-2 pr-3">Starts</th>
-                  <th className="py-2 pr-3">Present / Total</th>
-                  <th className="py-2 pr-0 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSessions.map((s) => {
-                  const total = attendance.filter(
-                    (a) => a.session_id === s.id
-                  ).length;
-                  const present = attendance.filter(
-                    (a) =>
-                      a.session_id === s.id && a.status === "present"
-                  ).length;
-                  const tName = s.teacher_id
-                    ? tMap.get(s.teacher_id)?.name ?? "—"
-                    : "—";
-                  return (
-                    <tr key={s.id} className="border-t">
-                      <td className="py-2 pr-3">
-                        {s.title ?? "Session"}
-                      </td>
-                      <td className="py-2 pr-3">{tName}</td>
-                      <td className="py-2 pr-3">
-                        {fmtDate(s.starts_at)}
-                      </td>
-                      <td className="py-2 pr-3">
-                        {present} / {total}
-                      </td>
-                      <td className="py-2 pr-0 text-right">
-                        <div className="inline-flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onOpenEditSession(s)}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">
+                Sessions & Attendance ({viewMode === "list" ? "List" : "Calendar"} view)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-x-auto pt-0">
+              {viewMode === "list" && (
+                <>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-slate-500">
+                        <th className="py-2 pr-3">Title</th>
+                        <th className="py-2 pr-3">Teacher</th>
+                        <th className="py-2 pr-3">Starts</th>
+                        <th className="py-2 pr-3">Present / Total</th>
+                        <th className="py-2 pr-0 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSessions.map((s) => {
+                        const total = attendance.filter(
+                          (a) => a.session_id === s.id
+                        ).length;
+                        const present = attendance.filter(
+                          (a) =>
+                            a.session_id === s.id && a.status === "present"
+                        ).length;
+                        const tName = s.teacher_id
+                          ? tMap.get(s.teacher_id)?.name ?? "—"
+                          : "—";
+                        return (
+                          <tr key={s.id} className="border-t">
+                            <td className="py-2 pr-3">
+                              {s.title ?? "Session"}
+                            </td>
+                            <td className="py-2 pr-3">{tName}</td>
+                            <td className="py-2 pr-3">
+                              {fmtDate(s.starts_at)}
+                            </td>
+                            <td className="py-2 pr-3">
+                              {present} / {total}
+                            </td>
+                            <td className="py-2 pr-0 text-right">
+                              <div className="inline-flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => onOpenEditSession(s)}
+                                >
+                                  <Pencil className="mr-1 h-4 w-4" /> Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-600 hover:bg-red-50"
+                                  onClick={() =>
+                                    setConfirmSession({
+                                      open: true,
+                                      id: s.id,
+                                      title: s.title ?? "Session",
+                                    })
+                                  }
+                                >
+                                  <Trash2 className="mr-1 h-4 w-4" /> Delete
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {!filteredSessions.length && (
+                        <tr>
+                          <td
+                            className="py-6 text-center text-slate-500"
+                            colSpan={5}
                           >
-                            <Pencil className="mr-1 h-4 w-4" /> Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-red-600 hover:bg-red-50"
-                            onClick={() =>
-                              setConfirmSession({
-                                open: true,
-                                id: s.id,
-                                title: s.title ?? "Session",
-                              })
-                            }
-                          >
-                            <Trash2 className="mr-1 h-4 w-4" /> Delete
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {!filteredSessions.length && (
-                  <tr>
-                    <td
-                      className="py-6 text-center text-slate-500"
-                      colSpan={5}
-                    >
-                      No sessions yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                            No sessions yet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </>
+              )}
 
-            {/* Quick attendance editor list */}
-            <div className="mt-4">
-              <div className="mb-2 text-sm font-semibold text-slate-700">
+              {viewMode === "calendar" && (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {filteredSessions.length === 0 && (
+                    <div className="col-span-full rounded-md border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-600">
+                      No sessions yet. Add a session to see it on the calendar view.
+                    </div>
+                  )}
+                  {filteredSessions
+                    .slice()
+                    .sort(
+                      (a, b) =>
+                        new Date(a.starts_at).getTime() -
+                        new Date(b.starts_at).getTime()
+                    )
+                    .map((s) => {
+                      const day = new Date(s.starts_at).toLocaleDateString();
+                      const time = new Date(s.starts_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+                      const total = attendance.filter(
+                        (a) => a.session_id === s.id
+                      ).length;
+                      const present = attendance.filter(
+                        (a) =>
+                          a.session_id === s.id && a.status === "present"
+                      ).length;
+                      const tName = s.teacher_id
+                        ? tMap.get(s.teacher_id)?.name ?? "—"
+                        : "—";
+                      return (
+                        <div
+                          key={s.id}
+                          className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="text-xs uppercase tracking-wide text-slate-500">
+                                {day}
+                              </div>
+                              <div className="text-sm font-semibold text-slate-900">
+                                {s.title ?? "Session"}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                {time}
+                              </div>
+                            </div>
+                            <div className="text-right text-xs text-slate-500">
+                              <div>{tName}</div>
+                              <div>
+                                {present}/{total} present
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-2 flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => onOpenEditSession(s)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:bg-red-50"
+                              onClick={() =>
+                                setConfirmSession({
+                                  open: true,
+                                  id: s.id,
+                                  title: s.title ?? "Session",
+                                })
+                              }
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">
                 All Attendance
-              </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-x-auto pt-0">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-slate-500">
@@ -1070,9 +1181,9 @@ export default function AttendancePage() {
                   )}
                 </tbody>
               </table>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       <Modal

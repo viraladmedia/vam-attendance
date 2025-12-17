@@ -29,6 +29,7 @@ export default function TeachersPage() {
   const [query, setQuery] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [viewMode, setViewMode] = React.useState<"grid" | "list">("grid");
   const [openCourse, setOpenCourse] = React.useState(false);
   const [courseTitle, setCourseTitle] = React.useState("");
   const [courseModality, setCourseModality] = React.useState<"group" | "1on1">("group");
@@ -91,6 +92,24 @@ export default function TeachersPage() {
             <p className="text-sm text-slate-600">View all instructors in your organization.</p>
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex rounded-md border border-slate-200 bg-white p-0.5">
+              <Button
+                size="sm"
+                variant={viewMode === "grid" ? "default" : "ghost"}
+                className="px-3"
+                onClick={() => setViewMode("grid")}
+              >
+                Grid
+              </Button>
+              <Button
+                size="sm"
+                variant={viewMode === "list" ? "default" : "ghost"}
+                className="px-3"
+                onClick={() => setViewMode("list")}
+              >
+                List
+              </Button>
+            </div>
             <Input
               placeholder="Search teachers..."
               value={query}
@@ -114,7 +133,7 @@ export default function TeachersPage() {
               {error}
             </div>
           )}
-          {!loading && !error && (
+          {!loading && !error && viewMode === "grid" && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {filtered.map((t) => (
                 <div
@@ -179,6 +198,72 @@ export default function TeachersPage() {
                   No teachers found. Use “Add Teacher” to get started.
                 </div>
               )}
+            </div>
+          )}
+          {!loading && !error && viewMode === "list" && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-slate-500">
+                    <th className="py-2 pr-3">Name</th>
+                    <th className="py-2 pr-3">Email</th>
+                    <th className="py-2 pr-3">Department</th>
+                    <th className="py-2 pr-3">Phone</th>
+                    <th className="py-2 pr-3">Added</th>
+                    <th className="py-2 pr-0 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((t) => (
+                    <tr key={t.id} className="border-t">
+                      <td className="py-2 pr-3">{t.name}</td>
+                      <td className="py-2 pr-3">{t.email}</td>
+                      <td className="py-2 pr-3">{t.department || "—"}</td>
+                      <td className="py-2 pr-3">{t.phone || "—"}</td>
+                      <td className="py-2 pr-3">
+                        {t.created_at ? new Date(t.created_at).toLocaleDateString() : "—"}
+                      </td>
+                      <td className="py-2 pr-0 text-right">
+                        <div className="inline-flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditTeacherId(t.id);
+                              setEditTeacherName(t.name);
+                              setEditTeacherEmail(t.email);
+                              setEditTeacherError(null);
+                              setOpenEditTeacher(true);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:bg-red-50"
+                            onClick={async () => {
+                              if (!confirm(`Delete teacher ${t.name}?`)) return;
+                              await fetch(`/api/teachers/${t.id}`, { method: "DELETE" });
+                              const tRes = await fetch("/api/teachers", { cache: "no-store" });
+                              if (tRes.ok) setTeachers((await tRes.json()) as Teacher[]);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {!filtered.length && (
+                    <tr>
+                      <td className="py-6 text-center text-slate-500" colSpan={6}>
+                        No teachers found. Use “Add Teacher” to get started.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>
