@@ -111,6 +111,8 @@ CREATE TABLE IF NOT EXISTS students (
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   name text NOT NULL,
   email text,
+  phone text,
+  country text,
   program text,
   duration_weeks integer,
   sessions_per_week integer,
@@ -133,6 +135,10 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
+
+-- Backfill columns for existing deployments
+ALTER TABLE students ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS country text;
 
 CREATE TABLE IF NOT EXISTS enrollments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

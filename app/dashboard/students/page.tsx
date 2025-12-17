@@ -39,7 +39,7 @@ export default function StudentsPage() {
   const [query, setQuery] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [viewMode, setViewMode] = React.useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = React.useState<"grid" | "list">("list");
   const [openEnroll, setOpenEnroll] = React.useState(false);
   const [enrollStudentId, setEnrollStudentId] = React.useState<string>("");
   const [enrollCourseIds, setEnrollCourseIds] = React.useState<string[]>([]);
@@ -61,8 +61,6 @@ export default function StudentsPage() {
   const [editStudentEmail, setEditStudentEmail] = React.useState("");
   const [editStudentPhone, setEditStudentPhone] = React.useState("");
   const [editStudentCountry, setEditStudentCountry] = React.useState("");
-  const [editStudentProgram, setEditStudentProgram] = React.useState("");
-  const [editStudentClass, setEditStudentClass] = React.useState("");
   const [editStudentSaving, setEditStudentSaving] = React.useState(false);
   const [editStudentError, setEditStudentError] = React.useState<string | null>(null);
   const [detailStudent, setDetailStudent] = React.useState<Student | null>(null);
@@ -118,7 +116,7 @@ export default function StudentsPage() {
   }, []);
 
   const filtered = students.filter((s) =>
-    [s.name, s.email, s.program, s.class_name, s.phone, s.country]
+    [s.name, s.email, s.phone, s.country]
       .filter(Boolean)
       .some((field) => field!.toLowerCase().includes(query.toLowerCase()))
   );
@@ -222,7 +220,7 @@ export default function StudentsPage() {
                     </div>
                     <div>
                       <div className="text-sm font-semibold text-slate-900">{s.name}</div>
-                      <div className="text-xs text-slate-600">{s.program || s.class_name || "Unassigned"}</div>
+                      <div className="text-xs text-slate-600">{s.email || "—"}</div>
                     </div>
                   </div>
                   <div className="mt-3 space-y-1 text-sm text-slate-700">
@@ -236,7 +234,8 @@ export default function StudentsPage() {
                     )}
                     {s.phone && <div className="text-slate-600">Phone: {s.phone}</div>}
                     {s.country && <div className="text-slate-600">Country: {s.country}</div>}
-                    {s.class_name && <div className="text-slate-600">Class: {s.class_name}</div>}
+                    {s.phone && <div className="text-slate-600">Phone: {s.phone}</div>}
+                    {s.country && <div className="text-slate-600">Country: {s.country}</div>}
                     {s.created_at && (
                       <div className="text-xs text-slate-500">
                         Added {new Date(s.created_at).toLocaleDateString()}
@@ -259,8 +258,6 @@ export default function StudentsPage() {
                           setEditStudentId(s.id);
                           setEditStudentName(s.name);
                           setEditStudentEmail(s.email ?? "");
-                          setEditStudentProgram(s.program ?? "");
-                          setEditStudentClass(s.class_name ?? "");
                           setEditStudentPhone(s.phone ?? "");
                           setEditStudentCountry(s.country ?? "");
                           setEditStudentError(null);
@@ -300,8 +297,6 @@ export default function StudentsPage() {
                   <tr className="text-left text-slate-500">
                     <th className="py-2 pr-3">Name</th>
                     <th className="py-2 pr-3">Email</th>
-                    <th className="py-2 pr-3">Program</th>
-                    <th className="py-2 pr-3">Class</th>
                     <th className="py-2 pr-3">Phone</th>
                     <th className="py-2 pr-3">Country</th>
                     <th className="py-2 pr-3">Added</th>
@@ -313,13 +308,11 @@ export default function StudentsPage() {
                     <tr key={s.id} className="border-t">
                       <td className="py-2 pr-3">{s.name}</td>
                       <td className="py-2 pr-3">{s.email || "—"}</td>
-                      <td className="py-2 pr-3">{s.program || "—"}</td>
-                      <td className="py-2 pr-3">{s.class_name || "—"}</td>
+                      <td className="py-2 pr-3">{s.phone || "—"}</td>
+                      <td className="py-2 pr-3">{s.country || "—"}</td>
                       <td className="py-2 pr-3">
                         {s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"}
                       </td>
-                      <td className="py-2 pr-3">{s.phone || "—"}</td>
-                      <td className="py-2 pr-3">{s.country || "—"}</td>
                       <td className="py-2 pr-0 text-right">
                         <div className="inline-flex gap-2">
                           <Button
@@ -338,8 +331,6 @@ export default function StudentsPage() {
                               setEditStudentId(s.id);
                               setEditStudentName(s.name);
                               setEditStudentEmail(s.email ?? "");
-                              setEditStudentProgram(s.program ?? "");
-                              setEditStudentClass(s.class_name ?? "");
                               setEditStudentError(null);
                               setOpenEditStudent(true);
                             }}
@@ -365,7 +356,7 @@ export default function StudentsPage() {
                   ))}
                   {!filtered.length && (
                     <tr>
-                  <td className="py-6 text-center text-slate-500" colSpan={8}>
+                  <td className="py-6 text-center text-slate-500" colSpan={6}>
                     No students found. Use “Add Student” to get started.
                   </td>
                 </tr>
@@ -685,18 +676,6 @@ export default function StudentsPage() {
                 onChange={(e) => setEditStudentCountry(e.target.value)}
                 className="h-9"
               />
-              <Input
-                placeholder="Program (optional)"
-                value={editStudentProgram}
-                onChange={(e) => setEditStudentProgram(e.target.value)}
-                className="h-9"
-              />
-              <Input
-                placeholder="Class (optional)"
-                value={editStudentClass}
-                onChange={(e) => setEditStudentClass(e.target.value)}
-                className="h-9"
-              />
               {editStudentError && (
                 <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {editStudentError}
@@ -722,8 +701,6 @@ export default function StudentsPage() {
                         email: editStudentEmail.trim() || null,
                         phone: editStudentPhone.trim() || null,
                         country: editStudentCountry.trim() || null,
-                        program: editStudentProgram.trim() || null,
-                        class_name: editStudentClass.trim() || null,
                       }),
                     });
                     if (!res.ok) throw new Error(await res.text());
@@ -755,7 +732,7 @@ export default function StudentsPage() {
               <div>
                 <h3 className="text-base font-semibold text-slate-800">{detailStudent.name}</h3>
                 <p className="text-xs text-slate-500">
-                  {detailStudent.email || "No email"} • {detailStudent.program || "No program"}
+                  {detailStudent.email || "No email"} • {detailStudent.country || "No country"}
                 </p>
               </div>
               <button
@@ -782,8 +759,6 @@ export default function StudentsPage() {
                   <div>Email: {detailStudent.email || "—"}</div>
                   <div>Phone: {detailStudent.phone || "—"}</div>
                   <div>Country: {detailStudent.country || "—"}</div>
-                  <div>Program: {detailStudent.program || "—"}</div>
-                  <div>Class: {detailStudent.class_name || "—"}</div>
                   <div>Joined: {detailStudent.created_at ? formatDateTime(detailStudent.created_at) : "—"}</div>
                 </CardContent>
               </Card>
