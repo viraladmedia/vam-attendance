@@ -34,6 +34,7 @@ export default function StudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([]);
   const [teachers, setTeachers] = React.useState<Teacher[]>([]);
   const [courses, setCourses] = React.useState<Course[]>([]);
+  const [enrollments, setEnrollments] = React.useState<any[]>([]);
   const [sessions, setSessions] = React.useState<Session[]>([]);
   const [query, setQuery] = React.useState("");
   const [loading, setLoading] = React.useState(true);
@@ -41,8 +42,8 @@ export default function StudentsPage() {
   const [viewMode, setViewMode] = React.useState<"grid" | "list">("grid");
   const [openEnroll, setOpenEnroll] = React.useState(false);
   const [enrollStudentId, setEnrollStudentId] = React.useState<string>("");
-  const [enrollCourseId, setEnrollCourseId] = React.useState<string>("");
-  const [enrollTeacherId, setEnrollTeacherId] = React.useState<string | null>(null);
+  const [enrollCourseIds, setEnrollCourseIds] = React.useState<string[]>([]);
+  const [enrollCourseSearch, setEnrollCourseSearch] = React.useState("");
   const [enrollStatus, setEnrollStatus] = React.useState<"active" | "paused" | "completed" | "dropped">("active");
   const [enrollSaving, setEnrollSaving] = React.useState(false);
   const [enrollError, setEnrollError] = React.useState<string | null>(null);
@@ -79,27 +80,33 @@ export default function StudentsPage() {
       try {
         setLoading(true);
         setError(null);
-        const [sRes, tRes, cRes, ssRes] = await Promise.all([
+        const [sRes, tRes, cRes, eRes, ssRes] = await Promise.all([
           fetch("/api/students", { cache: "no-store" }),
           fetch("/api/teachers", { cache: "no-store" }),
           fetch("/api/courses", { cache: "no-store" }),
+          fetch("/api/enrollments", { cache: "no-store" }),
           fetch("/api/sessions", { cache: "no-store" }),
         ]);
         if (!sRes.ok) throw new Error(await sRes.text());
         if (!tRes.ok) throw new Error(await tRes.text());
         if (!cRes.ok) throw new Error(await cRes.text());
+        if (!eRes.ok) throw new Error(await eRes.text());
         if (!ssRes.ok) throw new Error(await ssRes.text());
         const sData = (await sRes.json()) as Student[];
         const tData = (await tRes.json()) as Teacher[];
         const cData = (await cRes.json()) as Course[];
+        const eData = (await eRes.json()) as any[];
         const ssData = (await ssRes.json()) as Session[];
         setStudents(sData);
         setTeachers(tData);
         setCourses(cData);
+        setEnrollments(eData);
         setSessions(ssData);
-        if (sData.length) setEnrollStudentId(sData[0].id);
-        if (cData.length) setEnrollCourseId(cData[0].id);
-        if (tData.length) setEnrollTeacherId(tData[0].id);
+        if (sData.length) {
+          setEnrollStudentId(sData[0].id);
+          const existing = eData.filter((e: any) => e.student_id === sData[0].id).map((e: any) => e.course_id);
+          setEnrollCourseIds(existing.length ? existing : cData[0] ? [cData[0].id] : []);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load students");
       } finally {
@@ -115,6 +122,15 @@ export default function StudentsPage() {
       .filter(Boolean)
       .some((field) => field!.toLowerCase().includes(query.toLowerCase()))
   );
+
+  // Update selected courses when student selection changes
+  React.useEffect(() => {
+    if (!enrollStudentId) return;
+    const enrolled = enrollments
+      .filter((e) => e.student_id === enrollStudentId)
+      .map((e) => e.course_id);
+    setEnrollCourseIds(enrolled);
+  }, [enrollStudentId, enrollments]);
 
   React.useEffect(() => {
     if (!detailStudent) return;
@@ -487,32 +503,63 @@ export default function StudentsPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={enrollCourseId} onValueChange={setEnrollCourseId}>
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue placeholder="Select course" />
-                </SelectTrigger>
-                <SelectContent>
-                  {courses.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.title} ({c.modality === "group" ? "Group" : "1:1"})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-          <Select value={enrollTeacherId ?? "none"} onValueChange={(v) => setEnrollTeacherId(v === "none" ? null : v)}>
-            <SelectTrigger className="h-9 w-full">
-              <SelectValue placeholder="Assign teacher (optional)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Unassigned</SelectItem>
-              {teachers.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.name}
-                </SelectItem>
-              ))}
-                </SelectContent>
-              </Select>
+              <div className="sm:col-span-2 rounded-md border border-slate-200 p-2">
+                <div className="mb-2 flex items-center gap-2">
+                  <Input
+                    placeholder="Search courses..."
+                    value={enrollCourseSearch}
+                    onChange={(e) => setEnrollCourseSearch(e.target.value)}
+                    className="h-8"
+                  />
+                  <span className="text-xs text-slate-500">
+                    {enrollCourseIds.length} selected
+                  </span>
+                </div>
+                <div className="max-h-56 overflow-y-auto space-y-1">
+                  {courses
+                    .filter((c) => {
+                      const q = enrollCourseSearch.trim().toLowerCase();
+                      if (!q) return true;
+                      return (
+                        c.title.toLowerCase().includes(q) ||
+                        (c.modality || "").toLowerCase().includes(q)
+                      );
+                    })
+                    .map((c) => {
+                      const checked = enrollCourseIds.includes(c.id);
+                      return (
+                        <label
+                          key={c.id}
+                          className={`flex items-center gap-2 rounded-md border px-2 py-1 text-sm ${
+                            checked ? "border-fuchsia-200 bg-fuchsia-50" : "border-slate-200"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            checked={checked}
+                            onChange={() =>
+                              setEnrollCourseIds((prev) =>
+                                checked
+                                  ? prev.filter((id) => id !== c.id)
+                                  : [...prev, c.id]
+                              )
+                            }
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-800">{c.title}</div>
+                            <div className="text-xs text-slate-500">
+                              {c.modality === "group" ? "Group" : "1:1"}
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  {!courses.length && (
+                    <div className="text-sm text-slate-500">No courses available</div>
+                  )}
+                </div>
+              </div>
 
               <Select value={enrollStatus} onValueChange={(v) => setEnrollStatus(v as typeof enrollStatus)}>
                 <SelectTrigger className="h-9 w-full">
@@ -543,33 +590,43 @@ export default function StudentsPage() {
                 Cancel
               </Button>
               <Button
-                disabled={enrollSaving || !enrollStudentId || !enrollCourseId}
+                disabled={enrollSaving || !enrollStudentId || !enrollCourseIds.length}
                 onClick={async () => {
                   try {
                     setEnrollSaving(true);
                     setEnrollError(null);
                     setEnrollSuccess(null);
-                    const res = await fetch("/api/enrollments", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        student_id: enrollStudentId,
-                        course_id: enrollCourseId,
-                        teacher_id: enrollTeacherId,
-                        status: enrollStatus,
-                      }),
-                    });
-                    if (!res.ok) {
-                      const raw = await res.text();
-                      try {
-                        const parsed = JSON.parse(raw);
-                        const msg = parsed.error || parsed.message || raw;
-                        const hint = parsed.hint ? ` (${parsed.hint})` : "";
-                        throw new Error(`${msg}${hint}`);
-                      } catch {
-                        throw new Error(raw || "Failed to enroll student");
+                    const existing = enrollments
+                      .filter((e) => e.student_id === enrollStudentId)
+                      .map((e) => e.course_id);
+                    const toCreate = enrollCourseIds.filter((id) => !existing.includes(id));
+
+                    for (const cid of toCreate) {
+                      const res = await fetch("/api/enrollments", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          student_id: enrollStudentId,
+                          course_id: cid,
+                          status: enrollStatus,
+                        }),
+                      });
+                      if (!res.ok) {
+                        const raw = await res.text();
+                        try {
+                          const parsed = JSON.parse(raw);
+                          const msg = parsed.error || parsed.message || raw;
+                          const hint = parsed.hint ? ` (${parsed.hint})` : "";
+                          throw new Error(`${msg}${hint}`);
+                        } catch {
+                          throw new Error(raw || "Failed to enroll student");
+                        }
                       }
                     }
+
+                    // refresh enrollments
+                    const eRes = await fetch("/api/enrollments", { cache: "no-store" });
+                    if (eRes.ok) setEnrollments((await eRes.json()) as any[]);
                     setEnrollSuccess("Enrollment created");
                     setOpenEnroll(false);
                   } catch (err) {
