@@ -51,6 +51,13 @@ function toLocalInput(iso?: string | null) {
   )}`;
 }
 
+const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const defaultDaysFromCount = (count?: number | null) => {
+  const order = [1, 3, 5, 2, 4, 0, 6]; // start with Mon/Wed/Fri pattern
+  if (!count || count <= 0) return [];
+  return order.slice(0, Math.min(count, 7));
+};
+
 export default function CoursesPage() {
   const [courses, setCourses] = React.useState<Course[]>([]);
   const [enrollments, setEnrollments] = React.useState<Enrollment[]>([]);
@@ -67,7 +74,7 @@ export default function CoursesPage() {
   const [editLeadTeacher, setEditLeadTeacher] = React.useState<string | null>(null);
   const [editType, setEditType] = React.useState("");
   const [editDuration, setEditDuration] = React.useState("");
-  const [editSessionsPerWeek, setEditSessionsPerWeek] = React.useState("");
+  const [editMeetingDays, setEditMeetingDays] = React.useState<number[]>([]);
   const [editMaxStudents, setEditMaxStudents] = React.useState("");
   const [editStartsAt, setEditStartsAt] = React.useState("");
   const [editEndsAt, setEditEndsAt] = React.useState("");
@@ -146,7 +153,8 @@ export default function CoursesPage() {
         lead_teacher_id: editLeadTeacher || null,
         course_type: editType.trim() || null,
         duration_weeks: editDuration ? Number(editDuration) : null,
-        sessions_per_week: editSessionsPerWeek ? Number(editSessionsPerWeek) : null,
+        sessions_per_week: editMeetingDays.length ? editMeetingDays.length : null,
+        meeting_days: editMeetingDays.length ? editMeetingDays : undefined,
         max_students: editMaxStudents ? Number(editMaxStudents) : null,
         starts_at: editStartsAt ? new Date(editStartsAt).toISOString() : null,
         ends_at: editEndsAt ? new Date(editEndsAt).toISOString() : null,
@@ -277,8 +285,8 @@ export default function CoursesPage() {
                               setEditLeadTeacher(course.lead_teacher_id || null);
                               setEditType(course.course_type || "");
                               setEditDuration(course.duration_weeks ? String(course.duration_weeks) : "");
-                              setEditSessionsPerWeek(
-                                course.sessions_per_week ? String(course.sessions_per_week) : ""
+                              setEditMeetingDays(
+                                defaultDaysFromCount(course.sessions_per_week || 0)
                               );
                               setEditMaxStudents(course.max_students ? String(course.max_students) : "");
                               setEditStartsAt(toLocalInput(course.starts_at));
@@ -469,13 +477,36 @@ export default function CoursesPage() {
                 onChange={(e) => setEditDuration(e.target.value)}
                 className="h-9"
               />
-              <Input
-                placeholder="Sessions per week"
-                inputMode="numeric"
-                value={editSessionsPerWeek}
-                onChange={(e) => setEditSessionsPerWeek(e.target.value)}
-                className="h-9"
-              />
+              <div className="sm:col-span-2">
+                <div className="text-xs font-medium text-slate-700 mb-1">Days of the week</div>
+                <div className="flex flex-wrap gap-2">
+                  {dayLabels.map((label, idx) => {
+                    const checked = editMeetingDays.includes(idx);
+                    return (
+                      <label
+                        key={idx}
+                        className={`flex items-center gap-2 rounded-md border px-2 py-1 text-xs ${
+                          checked ? "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={checked}
+                          onChange={() =>
+                            setEditMeetingDays((prev) =>
+                              checked
+                                ? prev.filter((d) => d !== idx)
+                                : [...prev, idx].sort((a, b) => a - b)
+                            )
+                          }
+                        />
+                        {label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
               <Input
                 placeholder="Max students"
                 inputMode="numeric"

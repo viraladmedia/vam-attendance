@@ -36,7 +36,7 @@ export default function TeachersPage() {
   const [courseMaxStudents, setCourseMaxStudents] = React.useState<string>("");
   const [courseType, setCourseType] = React.useState("");
   const [courseDuration, setCourseDuration] = React.useState("");
-  const [courseSessionsPerWeek, setCourseSessionsPerWeek] = React.useState("");
+  const [courseMeetingDays, setCourseMeetingDays] = React.useState<number[]>([]);
   const [courseStartsAt, setCourseStartsAt] = React.useState("");
   const [courseSaving, setCourseSaving] = React.useState(false);
   const [courseError, setCourseError] = React.useState<string | null>(null);
@@ -288,13 +288,37 @@ export default function TeachersPage() {
                 onChange={(e) => setCourseDuration(e.target.value)}
                 className="h-9"
               />
-              <Input
-                placeholder="Sessions per week"
-                inputMode="numeric"
-                value={courseSessionsPerWeek}
-                onChange={(e) => setCourseSessionsPerWeek(e.target.value)}
-                className="h-9"
-              />
+              <div className="sm:col-span-2">
+                <div className="text-xs font-medium text-slate-700 mb-1">Days of the week</div>
+                <div className="flex flex-wrap gap-2">
+                  {[0, 1, 2, 3, 4, 5, 6].map((d) => {
+                    const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                    const checked = courseMeetingDays.includes(d);
+                    return (
+                      <label
+                        key={d}
+                        className={`flex items-center gap-2 rounded-md border px-2 py-1 text-xs ${
+                          checked ? "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={checked}
+                          onChange={() =>
+                            setCourseMeetingDays((prev) =>
+                              checked
+                                ? prev.filter((v) => v !== d)
+                                : [...prev, d].sort((a, b) => a - b)
+                            )
+                          }
+                        />
+                        {labels[d]}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
               <Input
                 type="datetime-local"
                 value={courseStartsAt}
@@ -333,7 +357,10 @@ export default function TeachersPage() {
                     if (courseMaxStudents) payload.max_students = Number(courseMaxStudents);
                     if (courseType) payload.course_type = courseType.trim();
                     if (courseDuration) payload.duration_weeks = Number(courseDuration);
-                    if (courseSessionsPerWeek) payload.sessions_per_week = Number(courseSessionsPerWeek);
+                    if (courseMeetingDays.length) {
+                      payload.sessions_per_week = courseMeetingDays.length;
+                      payload.meeting_days = courseMeetingDays;
+                    }
                     if (courseStartsAt) payload.starts_at = new Date(courseStartsAt).toISOString();
                     const res = await fetch("/api/courses", {
                       method: "POST",
@@ -346,7 +373,7 @@ export default function TeachersPage() {
                     setCourseMaxStudents("");
                     setCourseType("");
                     setCourseDuration("");
-                    setCourseSessionsPerWeek("");
+                    setCourseMeetingDays([]);
                     setCourseStartsAt("");
                     setOpenCourse(false);
                   } catch (err) {

@@ -13,6 +13,7 @@ const courseSchema = z.object({
   course_type: z.string().optional(),
   duration_weeks: z.number().int().positive().optional(),
   sessions_per_week: z.number().int().positive().optional(),
+  meeting_days: z.array(z.number().int().min(0).max(6)).optional(), // 0=Sun..6=Sat
   max_students: z.number().int().positive().optional(),
   starts_at: z.string().datetime().optional(),
   ends_at: z.string().datetime().optional(),
@@ -46,30 +47,80 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const payload = courseSchema.parse(body);
+    const { meeting_days, ...coursePayload } = payload;
     const { supabase, session, orgId } = await getRouteContext();
     const { data, error } = await supabase
       .from("courses")
-      .insert([{ ...payload, org_id: orgId }])
+      .insert([
+        {
+          ...coursePayload,
+          sessions_per_week:
+            coursePayload.sessions_per_week ?? (meeting_days?.length || undefined),
+          org_id: orgId,
+        },
+      ])
       .select()
       .single();
     if (error) throw error;
 
-    const sessionStartsAt = payload.starts_at ?? new Date().toISOString();
-    const { error: sessionError } = await supabase
-      .from("sessions")
-      .insert([
-        {
-          org_id: orgId,
-          course_id: data.id,
-          teacher_id: payload.lead_teacher_id ?? null,
-          title: payload.title ? `${payload.title} • Session 1` : "Session 1",
-          starts_at: sessionStartsAt,
-          class_name: payload.course_type ?? null,
-          description: payload.description ?? null,
-        },
-      ])
-      .select("id")
-      .single();
+    // Auto-create sessions using meeting days (or evenly spaced fallback)
+    let startDate = new Date(payload.starts_at ?? new Date().toISOString());
+    if (Number.isNaN(startDate.getTime())) startDate = new Date();
+
+    const meetingDays = meeting_days && meeting_days.length ? [...meeting_days].sort() : null;
+    const sessionsPerWeek =
+      (meetingDays?.length || 0) ||
+      (coursePayload.sessions_per_week && coursePayload.sessions_per_week > 0
+        ? coursePayload.sessions_per_week
+        : 1);
+    const totalWeeks =
+      coursePayload.duration_weeks && coursePayload.duration_weeks > 0
+        ? coursePayload.duration_weeks
+        : 1;
+    const totalSessions = Math.max(1, sessionsPerWeek * totalWeeks);
+    const maxSessions = Math.min(totalSessions, 200); // safety cap
+
+    const buildTimestampForDay = (dayNumber: number, weekOffset: number) => {
+      const base = new Date(startDate);
+      const dayDiff = (dayNumber - base.getDay() + 7) % 7 + weekOffset * 7;
+      base.setDate(base.getDate() + dayDiff);
+      return base.toISOString();
+    };
+
+    const sessionRows =
+      meetingDays && meetingDays.length
+        ? Array.from({ length: totalWeeks }).flatMap((_, weekIdx) =>
+            meetingDays.map((d, i) => {
+              const ts = buildTimestampForDay(d, weekIdx);
+              const idx = weekIdx * meetingDays.length + i;
+              const ordinal = totalSessions > 1 ? ` • Session ${idx + 1}` : "";
+              return {
+                org_id: orgId,
+                course_id: data.id,
+                teacher_id: payload.lead_teacher_id ?? null,
+                title: payload.title ? `${payload.title}${ordinal}` : `Session ${idx + 1}`,
+                starts_at: ts,
+                class_name: payload.course_type ?? null,
+                description: payload.description ?? null,
+              };
+            })
+          )
+        : Array.from({ length: maxSessions }).map((_, idx) => {
+            const intervalMs = (7 / sessionsPerWeek) * 24 * 60 * 60 * 1000;
+            const ts = new Date(startDate.getTime() + idx * intervalMs).toISOString();
+            const ordinal = maxSessions > 1 ? ` • Session ${idx + 1}` : "";
+            return {
+              org_id: orgId,
+              course_id: data.id,
+              teacher_id: payload.lead_teacher_id ?? null,
+              title: payload.title ? `${payload.title}${ordinal}` : `Session ${idx + 1}`,
+              starts_at: ts,
+              class_name: payload.course_type ?? null,
+              description: payload.description ?? null,
+            };
+          });
+
+    const { error: sessionError } = await supabase.from("sessions").insert(sessionRows);
     if (sessionError) throw sessionError;
 
     await logAudit(supabase, orgId, session.user.id, "create", "course", data.id, { title: data.title });
