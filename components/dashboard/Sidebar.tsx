@@ -53,8 +53,15 @@ export function Sidebar() {
 
   const nav: NavItem[] = [
     { key: "overview", href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-
-    { key: "courses", href: "/dashboard/courses", label: "Courses", icon: BookOpen },
+    {
+      key: "courses",
+      label: "Courses",
+      icon: BookOpen,
+      children: [
+        { href: "/dashboard/courses", label: "Courses" },
+        { href: "/dashboard/enrollments", label: "Enrollments" },
+      ],
+    },
     {
       key: "teachers",
       label: "Teachers",

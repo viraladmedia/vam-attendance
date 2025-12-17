@@ -83,12 +83,6 @@ export default function CoursesPage() {
   const [editSelectedStudents, setEditSelectedStudents] = React.useState<string[]>([]);
   const [courseSaving, setCourseSaving] = React.useState(false);
   const [courseError, setCourseError] = React.useState<string | null>(null);
-  const [openEditEnrollment, setOpenEditEnrollment] = React.useState(false);
-  const [editEnrollmentId, setEditEnrollmentId] = React.useState<string | null>(null);
-  const [editEnrollTeacher, setEditEnrollTeacher] = React.useState<string | null>(null);
-  const [editEnrollStatus, setEditEnrollStatus] = React.useState<Enrollment["status"]>("active");
-  const [enrollmentSaving, setEnrollmentSaving] = React.useState(false);
-  const [enrollmentError, setEnrollmentError] = React.useState<string | null>(null);
   const [openCourseDetail, setOpenCourseDetail] = React.useState(false);
   const [detailCourse, setDetailCourse] = React.useState<Course | null>(null);
 
@@ -225,38 +219,6 @@ export default function CoursesPage() {
       setCourseError(err instanceof Error ? err.message : "Unexpected error updating course");
     } finally {
       setCourseSaving(false);
-    }
-  };
-
-  const saveEnrollment = async () => {
-    if (!editEnrollmentId) return;
-    setEnrollmentSaving(true);
-    setEnrollmentError(null);
-    try {
-      const res = await fetch(`/api/enrollments/${editEnrollmentId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          teacher_id: editEnrollTeacher || null,
-          status: editEnrollStatus,
-        }),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        try {
-          const parsed = JSON.parse(text);
-          setEnrollmentError(parsed.error || parsed.message || "Failed to update enrollment");
-        } catch {
-          setEnrollmentError(text || "Failed to update enrollment");
-        }
-        return;
-      }
-      setOpenEditEnrollment(false);
-      await loadAll();
-    } catch (err) {
-      setEnrollmentError(err instanceof Error ? err.message : "Unexpected error updating enrollment");
-    } finally {
-      setEnrollmentSaving(false);
     }
   };
 
@@ -405,92 +367,6 @@ export default function CoursesPage() {
                 </div>
               )}
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Enrollments</CardTitle>
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          {loading && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading enrollments...
-            </div>
-          )}
-          {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-          {!loading && !error && (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-slate-500">
-                  <th className="py-2 pr-3">Student</th>
-                  <th className="py-2 pr-3">Course</th>
-                  <th className="py-2 pr-3">Teacher</th>
-                  <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3">Enrolled</th>
-                  <th className="py-2 pr-0 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {enrollments.map((en) => {
-                  const course = courses.find((c) => c.id === en.course_id);
-                  const student = studentById.get(en.student_id) || "Unknown";
-                  const teacher = en.teacher_id ? teacherById.get(en.teacher_id) || "—" : "Unassigned";
-                  return (
-                    <tr key={en.id} className="border-t">
-                      <td className="py-2 pr-3">{student}</td>
-                      <td className="py-2 pr-3">{course?.title || "—"}</td>
-                      <td className="py-2 pr-3">{teacher}</td>
-                      <td className="py-2 pr-3 capitalize">{en.status}</td>
-                      <td className="py-2 pr-3">
-                        {en.enrolled_at ? new Date(en.enrolled_at).toLocaleDateString() : "—"}
-                      </td>
-                      <td className="py-2 pr-0 text-right">
-                        <div className="inline-flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditEnrollmentId(en.id);
-                              setEditEnrollTeacher(en.teacher_id || null);
-                              setEditEnrollStatus(en.status);
-                              setEnrollmentError(null);
-                              setOpenEditEnrollment(true);
-                            }}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-red-600 hover:bg-red-50"
-                            onClick={async () => {
-                              if (!confirm("Delete this enrollment?")) return;
-                              await fetch(`/api/enrollments/${en.id}`, { method: "DELETE" });
-                              await loadAll();
-                            }}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {!enrollments.length && (
-                  <tr>
-                    <td className="py-6 text-center text-slate-500" colSpan={6}>
-                      No enrollments yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
           )}
         </CardContent>
       </Card>
@@ -830,78 +706,6 @@ export default function CoursesPage() {
         </div>
       )}
 
-      {openEditEnrollment && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          onMouseDown={() => setOpenEditEnrollment(false)}
-        >
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-          <div
-            className="relative w-full max-w-lg rounded-2xl border bg-white p-4 shadow-xl"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-800">Edit Enrollment</h3>
-              <button
-                aria-label="Close"
-                className="h-8 w-8 rounded-md hover:bg-slate-100"
-                onClick={() => setOpenEditEnrollment(false)}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Select
-                value={editEnrollStatus}
-                onValueChange={(v) => setEditEnrollStatus(v as Enrollment["status"])}
-              >
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="paused">Paused</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="dropped">Dropped</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select
-                value={editEnrollTeacher ?? "none"}
-                onValueChange={(v) => setEditEnrollTeacher(v === "none" ? null : v)}
-              >
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue placeholder="Assign teacher" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
-                  {teachers.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {enrollmentError && (
-              <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {enrollmentError}
-              </div>
-            )}
-
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpenEditEnrollment(false)}>
-                Cancel
-              </Button>
-              <Button onClick={saveEnrollment} disabled={enrollmentSaving}>
-                {enrollmentSaving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                Save changes
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
