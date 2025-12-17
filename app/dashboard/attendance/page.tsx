@@ -702,20 +702,6 @@ export default function AttendancePage() {
         showAccountIdInSubtitle={false}
       />
 
-      {/* Controls */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            onClick={() => {
-              setAttendanceError(null);
-              setOpenAttend(true);
-            }}
-          >
-            Add Attendance
-          </Button>
-        </div>
-      </div>
-
       {/* Panels */}
       {tab === "overview" && (
         <>
@@ -922,50 +908,60 @@ export default function AttendancePage() {
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">
-                Attendance ({viewMode === "list" ? "List" : "Calendar"} view)
-              </CardTitle>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <div className="w-[200px]">
-                  <Select value={studentFilter} onValueChange={setStudentFilter}>
-                    <SelectTrigger className="h-9 w-full">
-                      <SelectValue placeholder="Filter by student" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Students</SelectItem>
-                      {students.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex rounded-md border border-slate-200 bg-white p-0.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="text-sm font-semibold flex-1 min-w-[140px]">
+                  Attendance ({viewMode === "list" ? "List" : "Calendar"} view)
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="w-[200px]">
+                    <Select value={studentFilter} onValueChange={setStudentFilter}>
+                      <SelectTrigger className="h-9 w-full">
+                        <SelectValue placeholder="Filter by student" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Students</SelectItem>
+                        {students.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex rounded-md border border-slate-200 bg-white p-0.5">
+                    <Button
+                      size="sm"
+                      variant={viewMode === "list" ? "default" : "ghost"}
+                      className="px-3"
+                      onClick={() => setViewMode("list")}
+                    >
+                      List
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={viewMode === "calendar" ? "default" : "ghost"}
+                      className="px-3"
+                      onClick={() => setViewMode("calendar")}
+                    >
+                      Calendar
+                    </Button>
+                  </div>
+                  <div className="flex-1 min-w-[180px] max-w-[260px]">
+                    <Input
+                      placeholder="Search student / email / program…"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
                   <Button
-                    size="sm"
-                    variant={viewMode === "list" ? "default" : "ghost"}
-                    className="px-3"
-                    onClick={() => setViewMode("list")}
+                    onClick={() => {
+                      setAttendanceError(null);
+                      setOpenAttend(true);
+                    }}
                   >
-                    List
+                    Add Attendance
                   </Button>
-                  <Button
-                    size="sm"
-                    variant={viewMode === "calendar" ? "default" : "ghost"}
-                    className="px-3"
-                    onClick={() => setViewMode("calendar")}
-                  >
-                    Calendar
-                  </Button>
-                </div>
-                <div className="flex-1 min-w-[180px] max-w-[320px]">
-                  <Input
-                    placeholder="Search student / email / program…"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    className="h-9"
-                  />
                 </div>
               </div>
             </CardHeader>
