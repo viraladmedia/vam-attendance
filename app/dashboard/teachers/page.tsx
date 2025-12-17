@@ -23,9 +23,11 @@ type Teacher = {
   phone?: string | null;
   created_at?: string | null;
 };
+type Student = { id: string; name: string };
 
 export default function TeachersPage() {
   const [teachers, setTeachers] = React.useState<Teacher[]>([]);
+  const [students, setStudents] = React.useState<Student[]>([]);
   const [query, setQuery] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -42,6 +44,8 @@ export default function TeachersPage() {
   const [courseSaving, setCourseSaving] = React.useState(false);
   const [courseError, setCourseError] = React.useState<string | null>(null);
   const [courseSuccess, setCourseSuccess] = React.useState<string | null>(null);
+  const [courseStudentSearch, setCourseStudentSearch] = React.useState("");
+  const [courseSelectedStudents, setCourseSelectedStudents] = React.useState<string[]>([]);
   const [openTeacherModal, setOpenTeacherModal] = React.useState(false);
   const [newTeacherName, setNewTeacherName] = React.useState("");
   const [newTeacherEmail, setNewTeacherEmail] = React.useState("");
@@ -59,12 +63,21 @@ export default function TeachersPage() {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch("/api/teachers", { cache: "no-store" });
-        if (!res.ok) throw new Error(await res.text());
-        const data = (await res.json()) as Teacher[];
+        const [tRes, sRes] = await Promise.all([
+          fetch("/api/teachers", { cache: "no-store" }),
+          fetch("/api/students", { cache: "no-store" }),
+        ]);
+        if (!tRes.ok) throw new Error(await tRes.text());
+        if (!sRes.ok) throw new Error(await sRes.text());
+        const data = (await tRes.json()) as Teacher[];
+        const sData = (await sRes.json()) as Student[];
         setTeachers(data);
+        setStudents(sData);
         if (!courseLeadTeacher && data.length > 0) {
           setCourseLeadTeacher(data[0].id);
+        }
+        if (!courseSelectedStudents.length && sData.length) {
+          setCourseSelectedStudents([]);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load teachers");
@@ -448,6 +461,54 @@ export default function TeachersPage() {
                 onChange={(e) => setCourseStartsAt(e.target.value)}
                 className="h-9 sm:col-span-2"
               />
+
+              <div className="sm:col-span-2 rounded-md border border-slate-200 p-2">
+                <div className="mb-2 flex items-center gap-2">
+                  <Input
+                    placeholder="Search students to quick-enroll..."
+                    value={courseStudentSearch}
+                    onChange={(e) => setCourseStudentSearch(e.target.value)}
+                    className="h-8"
+                  />
+                  <span className="text-xs text-slate-500">{courseSelectedStudents.length} selected</span>
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {students
+                    .filter((s) => {
+                      const q = courseStudentSearch.trim().toLowerCase();
+                      if (!q) return true;
+                      return s.name.toLowerCase().includes(q);
+                    })
+                    .map((s) => {
+                      const checked = courseSelectedStudents.includes(s.id);
+                      return (
+                        <label
+                          key={s.id}
+                          className={`flex items-center gap-2 rounded-md border px-2 py-1 text-sm ${
+                            checked ? "border-fuchsia-200 bg-fuchsia-50" : "border-slate-200"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            checked={checked}
+                            onChange={() =>
+                              setCourseSelectedStudents((prev) =>
+                                checked ? prev.filter((id) => id !== s.id) : [...prev, s.id]
+                              )
+                            }
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-800">{s.name}</div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  {!students.length && (
+                    <div className="text-sm text-slate-500">No students available to enroll</div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {courseSuccess && (
@@ -491,6 +552,25 @@ export default function TeachersPage() {
                       body: JSON.stringify(payload),
                     });
                     if (!res.ok) throw new Error(await res.text());
+                    const created = await res.json();
+
+                    for (const sid of courseSelectedStudents) {
+                      const enrollRes = await fetch("/api/enrollments", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          student_id: sid,
+                          course_id: created.id,
+                          status: "active",
+                          teacher_id: courseLeadTeacher || null,
+                        }),
+                      });
+                      if (!enrollRes.ok) {
+                        const raw = await enrollRes.text();
+                        throw new Error(raw || "Failed to enroll selected students");
+                      }
+                    }
+
                     setCourseSuccess("Course created");
                     setCourseTitle("");
                     setCourseMaxStudents("");
@@ -498,6 +578,8 @@ export default function TeachersPage() {
                     setCourseDuration("");
                     setCourseMeetingDays([]);
                     setCourseStartsAt("");
+                    setCourseSelectedStudents([]);
+                    setCourseStudentSearch("");
                     setOpenCourse(false);
                   } catch (err) {
                     setCourseError(err instanceof Error ? err.message : "Failed to create course");

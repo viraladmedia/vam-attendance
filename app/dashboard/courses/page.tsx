@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Users, Loader2 } from "lucide-react";
+import Link from "next/link";
 
 type Course = {
   id: string;
@@ -78,6 +79,8 @@ export default function CoursesPage() {
   const [editMaxStudents, setEditMaxStudents] = React.useState("");
   const [editStartsAt, setEditStartsAt] = React.useState("");
   const [editEndsAt, setEditEndsAt] = React.useState("");
+  const [editStudentSearch, setEditStudentSearch] = React.useState("");
+  const [editSelectedStudents, setEditSelectedStudents] = React.useState<string[]>([]);
   const [courseSaving, setCourseSaving] = React.useState(false);
   const [courseError, setCourseError] = React.useState<string | null>(null);
   const [openEditEnrollment, setOpenEditEnrollment] = React.useState(false);
@@ -86,6 +89,8 @@ export default function CoursesPage() {
   const [editEnrollStatus, setEditEnrollStatus] = React.useState<Enrollment["status"]>("active");
   const [enrollmentSaving, setEnrollmentSaving] = React.useState(false);
   const [enrollmentError, setEnrollmentError] = React.useState<string | null>(null);
+  const [openCourseDetail, setOpenCourseDetail] = React.useState(false);
+  const [detailCourse, setDetailCourse] = React.useState<Course | null>(null);
 
   const loadAll = React.useCallback(async () => {
     try {
@@ -131,6 +136,16 @@ export default function CoursesPage() {
     return map;
   }, [courses, enrollments]);
 
+  const enrollmentsByCourse = React.useMemo(() => {
+    const map = new Map<string, Enrollment[]>();
+    enrollments.forEach((en) => {
+      const arr = map.get(en.course_id) || [];
+      arr.push(en);
+      map.set(en.course_id, arr);
+    });
+    return map;
+  }, [enrollments]);
+
   const filteredCourses = courses.filter((c) => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
@@ -174,6 +189,36 @@ export default function CoursesPage() {
         }
         return;
       }
+      const currentEnrollments = enrollments.filter((en) => en.course_id === editCourseId);
+      const existingStudentIds = currentEnrollments.map((en) => en.student_id);
+      const toAdd = editSelectedStudents.filter((sid) => !existingStudentIds.includes(sid));
+      const toRemove = currentEnrollments.filter((en) => !editSelectedStudents.includes(en.student_id));
+
+      for (const sid of toAdd) {
+        const addRes = await fetch("/api/enrollments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            student_id: sid,
+            course_id: editCourseId,
+            status: "active",
+            teacher_id: editLeadTeacher || null,
+          }),
+        });
+        if (!addRes.ok) {
+          const raw = await addRes.text();
+          throw new Error(raw || "Failed to add enrollment");
+        }
+      }
+
+      for (const en of toRemove) {
+        const delRes = await fetch(`/api/enrollments/${en.id}`, { method: "DELETE" });
+        if (!delRes.ok) {
+          const raw = await delRes.text();
+          throw new Error(raw || "Failed to remove enrollment");
+        }
+      }
+
       setOpenEditCourse(false);
       await loadAll();
     } catch (err) {
@@ -276,6 +321,16 @@ export default function CoursesPage() {
                           <BookOpen className="h-5 w-5 text-slate-400" />
                           <Button
                             size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setDetailCourse(course);
+                              setOpenCourseDetail(true);
+                            }}
+                          >
+                            View
+                          </Button>
+                          <Button
+                            size="sm"
                             variant="outline"
                             onClick={() => {
                               setEditCourseId(course.id);
@@ -291,6 +346,12 @@ export default function CoursesPage() {
                               setEditMaxStudents(course.max_students ? String(course.max_students) : "");
                               setEditStartsAt(toLocalInput(course.starts_at));
                               setEditEndsAt(toLocalInput(course.ends_at));
+                              setEditStudentSearch("");
+                              setEditSelectedStudents(
+                                enrollments
+                                  .filter((en) => en.course_id === course.id)
+                                  .map((en) => en.student_id)
+                              );
                               setCourseError(null);
                               setOpenEditCourse(true);
                             }}
@@ -552,6 +613,54 @@ export default function CoursesPage() {
                 onChange={(e) => setEditEndsAt(e.target.value)}
                 className="h-9"
               />
+
+              <div className="sm:col-span-2 rounded-md border border-slate-200 p-2">
+                <div className="mb-2 flex items-center gap-2">
+                  <Input
+                    placeholder="Search students to quick-enroll..."
+                    value={editStudentSearch}
+                    onChange={(e) => setEditStudentSearch(e.target.value)}
+                    className="h-8"
+                  />
+                  <span className="text-xs text-slate-500">{editSelectedStudents.length} selected</span>
+                </div>
+                <div className="max-h-56 overflow-y-auto space-y-1">
+                  {students
+                    .filter((s) => {
+                      const q = editStudentSearch.trim().toLowerCase();
+                      if (!q) return true;
+                      return s.name.toLowerCase().includes(q);
+                    })
+                    .map((s) => {
+                      const checked = editSelectedStudents.includes(s.id);
+                      return (
+                        <label
+                          key={s.id}
+                          className={`flex items-center gap-2 rounded-md border px-2 py-1 text-sm ${
+                            checked ? "border-fuchsia-200 bg-fuchsia-50" : "border-slate-200"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            checked={checked}
+                            onChange={() =>
+                              setEditSelectedStudents((prev) =>
+                                checked ? prev.filter((id) => id !== s.id) : [...prev, s.id]
+                              )
+                            }
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-800">{s.name}</div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  {!students.length && (
+                    <div className="text-sm text-slate-500">No students available to enroll</div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {courseError && (
@@ -568,6 +677,154 @@ export default function CoursesPage() {
                 {courseSaving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                 Save changes
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {openCourseDetail && detailCourse && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          onMouseDown={() => setOpenCourseDetail(false)}
+        >
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-3xl rounded-2xl border bg-white p-4 shadow-xl"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-slate-800">{detailCourse.title}</h3>
+                <p className="text-xs text-slate-500">
+                  {detailCourse.course_type || "Course"} • {detailCourse.modality === "group" ? "Group" : "1:1"}
+                </p>
+              </div>
+              <button
+                aria-label="Close"
+                className="h-8 w-8 rounded-md hover:bg-slate-100"
+                onClick={() => setOpenCourseDetail(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            {detailCourse.description && (
+              <p className="mb-3 text-sm text-slate-700">{detailCourse.description}</p>
+            )}
+
+            <div className="mb-4 grid grid-cols-2 gap-2 text-sm text-slate-700 sm:grid-cols-3">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="text-xs text-slate-500">Lead teacher</div>
+                <div className="font-medium text-slate-800">
+                  {detailCourse.lead_teacher_id
+                    ? teacherById.get(detailCourse.lead_teacher_id) || "Unassigned"
+                    : "Unassigned"}
+                </div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="text-xs text-slate-500">Duration</div>
+                <div className="font-medium text-slate-800">
+                  {detailCourse.duration_weeks ? `${detailCourse.duration_weeks} weeks` : "Not set"}
+                </div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="text-xs text-slate-500">Sessions / week</div>
+                <div className="font-medium text-slate-800">
+                  {detailCourse.sessions_per_week ?? "Not set"}
+                </div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="text-xs text-slate-500">Start</div>
+                <div className="font-medium text-slate-800">
+                  {detailCourse.starts_at ? new Date(detailCourse.starts_at).toLocaleString() : "Not set"}
+                </div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="text-xs text-slate-500">End</div>
+                <div className="font-medium text-slate-800">
+                  {detailCourse.ends_at ? new Date(detailCourse.ends_at).toLocaleString() : "Not set"}
+                </div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="text-xs text-slate-500">Capacity</div>
+                <div className="font-medium text-slate-800">
+                  {detailCourse.max_students ? `${detailCourse.max_students} seats` : "No cap"}
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+              {(() => {
+                const stats = courseStats.get(detailCourse.id) || { total: 0, active: 0 };
+                return (
+                  <>
+                    <Badge variant="outline" className="border-slate-200">
+                      {stats.total} enrolled
+                    </Badge>
+                    <Badge variant="outline" className="border-slate-200">
+                      {stats.active} active
+                    </Badge>
+                  </>
+                );
+              })()}
+              <Badge variant="outline" className="border-slate-200">
+                {detailCourse.modality === "group" ? "Group" : "1:1"}
+              </Badge>
+              {detailCourse.course_type && (
+                <Badge variant="outline" className="border-slate-200">
+                  {detailCourse.course_type}
+                </Badge>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-slate-200 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-800">Enrolled students</div>
+                <span className="text-xs text-slate-500">
+                  {(enrollmentsByCourse.get(detailCourse.id) || []).length} total
+                </span>
+              </div>
+              <div className="max-h-64 overflow-y-auto space-y-1">
+                {(enrollmentsByCourse.get(detailCourse.id) || []).map((en) => (
+                  <div
+                    key={en.id}
+                    className="flex items-center justify-between rounded-md border border-slate-200 px-2 py-1 text-sm"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium text-slate-800">
+                        {studentById.get(en.student_id) || "Unknown student"}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        Enrolled {en.enrolled_at ? new Date(en.enrolled_at).toLocaleDateString() : "—"}
+                      </span>
+                    </div>
+                    <Badge variant="outline" className="capitalize border-slate-200">
+                      {en.status}
+                    </Badge>
+                  </div>
+                ))}
+                {!(enrollmentsByCourse.get(detailCourse.id) || []).length && (
+                  <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                    No students enrolled yet.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <Link
+                href={`/dashboard/attendance?course=${detailCourse.id}`}
+                className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Go to attendance
+              </Link>
+              <Link
+                href={`/dashboard/sessions?course=${detailCourse.id}`}
+                className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Go to sessions
+              </Link>
+              <Button onClick={() => setOpenCourseDetail(false)}>Close</Button>
             </div>
           </div>
         </div>
