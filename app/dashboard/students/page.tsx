@@ -47,6 +47,14 @@ export default function StudentsPage() {
   const [newStudentEmail, setNewStudentEmail] = React.useState("");
   const [studentSaving, setStudentSaving] = React.useState(false);
   const [studentError, setStudentError] = React.useState<string | null>(null);
+  const [openEditStudent, setOpenEditStudent] = React.useState(false);
+  const [editStudentId, setEditStudentId] = React.useState<string | null>(null);
+  const [editStudentName, setEditStudentName] = React.useState("");
+  const [editStudentEmail, setEditStudentEmail] = React.useState("");
+  const [editStudentProgram, setEditStudentProgram] = React.useState("");
+  const [editStudentClass, setEditStudentClass] = React.useState("");
+  const [editStudentSaving, setEditStudentSaving] = React.useState(false);
+  const [editStudentError, setEditStudentError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const load = async () => {
@@ -152,6 +160,36 @@ export default function StudentsPage() {
                         Added {new Date(s.created_at).toLocaleDateString()}
                       </div>
                     )}
+                    <div className="mt-2 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditStudentId(s.id);
+                          setEditStudentName(s.name);
+                          setEditStudentEmail(s.email ?? "");
+                          setEditStudentProgram(s.program ?? "");
+                          setEditStudentClass(s.class_name ?? "");
+                          setEditStudentError(null);
+                          setOpenEditStudent(true);
+                        }}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 hover:bg-red-50"
+                        onClick={async () => {
+                          if (!confirm(`Delete student ${s.name}?`)) return;
+                          await fetch(`/api/students/${s.id}`, { method: "DELETE" });
+                          const tRes = await fetch("/api/students", { cache: "no-store" });
+                          if (tRes.ok) setStudents((await tRes.json()) as Student[]);
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -363,6 +401,93 @@ export default function StudentsPage() {
                 }}
               >
                 {enrollSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enroll"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {openEditStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenEditStudent(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-md rounded-2xl border bg-white p-4 shadow-xl"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-800">Edit Student</h3>
+              <button
+                aria-label="Close"
+                className="h-8 w-8 rounded-md hover:bg-slate-100"
+                onClick={() => setOpenEditStudent(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-2">
+              <Input
+                placeholder="Full name"
+                value={editStudentName}
+                onChange={(e) => setEditStudentName(e.target.value)}
+                className="h-9"
+              />
+              <Input
+                placeholder="Email (optional)"
+                value={editStudentEmail}
+                onChange={(e) => setEditStudentEmail(e.target.value)}
+                className="h-9"
+              />
+              <Input
+                placeholder="Program (optional)"
+                value={editStudentProgram}
+                onChange={(e) => setEditStudentProgram(e.target.value)}
+                className="h-9"
+              />
+              <Input
+                placeholder="Class (optional)"
+                value={editStudentClass}
+                onChange={(e) => setEditStudentClass(e.target.value)}
+                className="h-9"
+              />
+              {editStudentError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {editStudentError}
+                </div>
+              )}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOpenEditStudent(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={editStudentSaving || !editStudentName.trim()}
+                onClick={async () => {
+                  if (!editStudentId) return;
+                  try {
+                    setEditStudentSaving(true);
+                    setEditStudentError(null);
+                    const res = await fetch(`/api/students/${editStudentId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        name: editStudentName.trim(),
+                        email: editStudentEmail.trim() || null,
+                        program: editStudentProgram.trim() || null,
+                        class_name: editStudentClass.trim() || null,
+                      }),
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                    const sRes = await fetch("/api/students", { cache: "no-store" });
+                    if (sRes.ok) setStudents((await sRes.json()) as Student[]);
+                    setOpenEditStudent(false);
+                  } catch (err) {
+                    setEditStudentError(err instanceof Error ? err.message : "Failed to update student");
+                  } finally {
+                    setEditStudentSaving(false);
+                  }
+                }}
+              >
+                {editStudentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
               </Button>
             </div>
           </div>

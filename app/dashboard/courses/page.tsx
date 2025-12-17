@@ -297,6 +297,18 @@ export default function CoursesPage() {
                           >
                             Edit
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:bg-red-50"
+                            onClick={async () => {
+                              if (!confirm(`Delete course ${course.title}?`)) return;
+                              await fetch(`/api/courses/${course.id}`, { method: "DELETE" });
+                              await loadAll();
+                            }}
+                          >
+                            Delete
+                          </Button>
                         </div>
                       </div>
                     </CardHeader>
@@ -378,19 +390,33 @@ export default function CoursesPage() {
                         {en.enrolled_at ? new Date(en.enrolled_at).toLocaleDateString() : "—"}
                       </td>
                       <td className="py-2 pr-0 text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditEnrollmentId(en.id);
-                            setEditEnrollTeacher(en.teacher_id || null);
-                            setEditEnrollStatus(en.status);
-                            setEnrollmentError(null);
-                            setOpenEditEnrollment(true);
-                          }}
-                        >
-                          Edit
-                        </Button>
+                        <div className="inline-flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditEnrollmentId(en.id);
+                              setEditEnrollTeacher(en.teacher_id || null);
+                              setEditEnrollStatus(en.status);
+                              setEnrollmentError(null);
+                              setOpenEditEnrollment(true);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:bg-red-50"
+                            onClick={async () => {
+                              if (!confirm("Delete this enrollment?")) return;
+                              await fetch(`/api/enrollments/${en.id}`, { method: "DELETE" });
+                              await loadAll();
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );

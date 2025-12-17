@@ -46,6 +46,12 @@ export default function TeachersPage() {
   const [newTeacherEmail, setNewTeacherEmail] = React.useState("");
   const [teacherSaving, setTeacherSaving] = React.useState(false);
   const [teacherError, setTeacherError] = React.useState<string | null>(null);
+  const [openEditTeacher, setOpenEditTeacher] = React.useState(false);
+  const [editTeacherId, setEditTeacherId] = React.useState<string | null>(null);
+  const [editTeacherName, setEditTeacherName] = React.useState("");
+  const [editTeacherEmail, setEditTeacherEmail] = React.useState("");
+  const [editTeacherSaving, setEditTeacherSaving] = React.useState(false);
+  const [editTeacherError, setEditTeacherError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const load = async () => {
@@ -137,6 +143,34 @@ export default function TeachersPage() {
                         Added {new Date(t.created_at).toLocaleDateString()}
                       </div>
                     )}
+                    <div className="mt-2 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditTeacherId(t.id);
+                          setEditTeacherName(t.name);
+                          setEditTeacherEmail(t.email);
+                          setEditTeacherError(null);
+                          setOpenEditTeacher(true);
+                        }}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 hover:bg-red-50"
+                        onClick={async () => {
+                          if (!confirm(`Delete teacher ${t.name}?`)) return;
+                          await fetch(`/api/teachers/${t.id}`, { method: "DELETE" });
+                          const tRes = await fetch("/api/teachers", { cache: "no-store" });
+                          if (tRes.ok) setTeachers((await tRes.json()) as Teacher[]);
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -384,6 +418,79 @@ export default function TeachersPage() {
                 }}
               >
                 {courseSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Course"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {openEditTeacher && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenEditTeacher(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-md rounded-2xl border bg-white p-4 shadow-xl"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-800">Edit Teacher</h3>
+              <button
+                aria-label="Close"
+                className="h-8 w-8 rounded-md hover:bg-slate-100"
+                onClick={() => setOpenEditTeacher(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-2">
+              <Input
+                placeholder="Full name"
+                value={editTeacherName}
+                onChange={(e) => setEditTeacherName(e.target.value)}
+                className="h-9"
+              />
+              <Input
+                placeholder="Email"
+                value={editTeacherEmail}
+                onChange={(e) => setEditTeacherEmail(e.target.value)}
+                className="h-9"
+              />
+              {editTeacherError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {editTeacherError}
+                </div>
+              )}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOpenEditTeacher(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={editTeacherSaving || !editTeacherName.trim() || !editTeacherEmail.trim()}
+                onClick={async () => {
+                  if (!editTeacherId) return;
+                  try {
+                    setEditTeacherSaving(true);
+                    setEditTeacherError(null);
+                    const res = await fetch(`/api/teachers/${editTeacherId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        name: editTeacherName.trim(),
+                        email: editTeacherEmail.trim(),
+                      }),
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                    const tRes = await fetch("/api/teachers", { cache: "no-store" });
+                    if (tRes.ok) setTeachers((await tRes.json()) as Teacher[]);
+                    setOpenEditTeacher(false);
+                  } catch (err) {
+                    setEditTeacherError(err instanceof Error ? err.message : "Failed to update teacher");
+                  } finally {
+                    setEditTeacherSaving(false);
+                  }
+                }}
+              >
+                {editTeacherSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
               </Button>
             </div>
           </div>
