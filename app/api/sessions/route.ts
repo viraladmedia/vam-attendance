@@ -6,8 +6,8 @@ import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { respondWithError } from "@/lib/api/errors";
 
 const sessionSchema = z.object({
-  teacher_id: z.string().uuid().optional(),
-  title: z.string().min(1).optional(),
+  teacher_id: z.string().uuid().optional().nullable(),
+  title: z.string().min(1).optional().nullable(),
   starts_at: z.string().min(1),
   ends_at: z.string().optional(),
   class_name: z.string().optional(),

@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader, Plus, Search, Check, X, Clock, Pencil, Trash2 } from "lucide-react";
+import { Loader, Pencil, Trash2 } from "lucide-react";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import {
   ResponsiveContainer,
@@ -199,12 +199,16 @@ export default function AttendancePage() {
   const [sessTeacherId, setSessTeacherId] = React.useState("");
   const [sessTitle, setSessTitle] = React.useState("");
   const [sessStartsAt, setSessStartsAt] = React.useState<string>("");
+  const [sessionSaving, setSessionSaving] = React.useState(false);
+  const [sessionError, setSessionError] = React.useState<string | null>(null);
 
   // Add Attendance modal
   const [openAttend, setOpenAttend] = React.useState(false);
   const [attendSessionId, setAttendSessionId] = React.useState("");
   const [attendStudentId, setAttendStudentId] = React.useState("");
   const [attendStatus, setAttendStatus] = React.useState<Status>("present");
+  const [attendanceSaving, setAttendanceSaving] = React.useState(false);
+  const [attendanceError, setAttendanceError] = React.useState<string | null>(null);
 
   // EDIT Teacher modal
   const [openEditTeacher, setOpenEditTeacher] = React.useState(false);
@@ -335,49 +339,91 @@ export default function AttendancePage() {
     };
   }, [students, teachers, sessions, attendance]);
 
+  const canSaveSession = Boolean(sessTeacherId && sessStartsAt && !sessionSaving);
+  const canSaveAttendance = Boolean(
+    attendSessionId && attendStudentId && attendStatus && !attendanceSaving
+  );
+
   const addSessionRPC = async () => {
     if (!sessTeacherId || !sessStartsAt) return;
-    const startsAt = new Date(sessStartsAt).toISOString();
-    const res = await fetch("/api/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        teacher_id: sessTeacherId,
-        title: sessTitle || null,
+    setSessionSaving(true);
+    setSessionError(null);
+    try {
+      const startsAt = new Date(sessStartsAt).toISOString();
+      const payload = {
+        teacher_id: sessTeacherId || undefined,
+        title: sessTitle.trim() || undefined,
         starts_at: startsAt,
-      }),
-    });
-    if (!res.ok) {
-      console.error(await res.text());
-      return;
+      };
+      const res = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        let message = "Failed to create session";
+        try {
+          const parsed = JSON.parse(text);
+          message = parsed.error || parsed.message || message;
+        } catch {
+          if (text) message = text;
+        }
+        setSessionError(message);
+        return;
+      }
+      setSessTeacherId("");
+      setSessTitle("");
+      setSessStartsAt("");
+      setOpenSession(false);
+      await reload();
+    } catch (err) {
+      setSessionError(
+        err instanceof Error ? err.message : "Unexpected error while creating session"
+      );
+    } finally {
+      setSessionSaving(false);
     }
-    setSessTeacherId("");
-    setSessTitle("");
-    setSessStartsAt("");
-    setOpenSession(false);
-    reload();
   };
 
   const addAttendance = async () => {
     if (!attendSessionId || !attendStudentId) return;
-    const res = await fetch("/api/attendance", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        session_id: attendSessionId,
-        student_id: attendStudentId,
-        status: attendStatus,
-      }),
-    });
-    if (!res.ok) {
-      console.error(await res.text());
-      return;
+    setAttendanceSaving(true);
+    setAttendanceError(null);
+    try {
+      const res = await fetch("/api/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: attendSessionId,
+          student_id: attendStudentId,
+          status: attendStatus,
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        let message = "Failed to record attendance";
+        try {
+          const parsed = JSON.parse(text);
+          message = parsed.error || parsed.message || message;
+        } catch {
+          if (text) message = text;
+        }
+        setAttendanceError(message);
+        return;
+      }
+      setAttendSessionId("");
+      setAttendStudentId("");
+      setAttendStatus("present");
+      setOpenAttend(false);
+      await reload();
+    } catch (err) {
+      setAttendanceError(
+        err instanceof Error ? err.message : "Unexpected error while saving attendance"
+      );
+    } finally {
+      setAttendanceSaving(false);
     }
-    setAttendSessionId("");
-    setAttendStudentId("");
-    setAttendStatus("present");
-    setOpenAttend(false);
-    reload();
   };
 
   /* ------------ EDIT flows ------------ */
@@ -639,10 +685,23 @@ export default function AttendancePage() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" onClick={() => setOpenSession(true)}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSessionError(null);
+              setOpenSession(true);
+            }}
+          >
             Add Session
           </Button>
-          <Button onClick={() => setOpenAttend(true)}>Add Attendance</Button>
+          <Button
+            onClick={() => {
+              setAttendanceError(null);
+              setOpenAttend(true);
+            }}
+          >
+            Add Attendance
+          </Button>
         </div>
       </div>
 
@@ -1018,7 +1077,10 @@ export default function AttendancePage() {
 
       <Modal
         open={openSession}
-        onClose={() => setOpenSession(false)}
+        onClose={() => {
+          setOpenSession(false);
+          setSessionError(null);
+        }}
         title="Add Session"
       >
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1051,16 +1113,33 @@ export default function AttendancePage() {
           />
         </div>
         <div className="mt-3 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setOpenSession(false)}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setOpenSession(false);
+              setSessionError(null);
+            }}
+          >
             Cancel
           </Button>
-          <Button onClick={addSessionRPC}>Save</Button>
+          <Button onClick={addSessionRPC} disabled={!canSaveSession}>
+            {sessionSaving && <Loader className="mr-1 h-4 w-4 animate-spin" />}
+            Save
+          </Button>
         </div>
+        {sessionError && (
+          <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {sessionError}
+          </div>
+        )}
       </Modal>
 
       <Modal
         open={openAttend}
-        onClose={() => setOpenAttend(false)}
+        onClose={() => {
+          setOpenAttend(false);
+          setAttendanceError(null);
+        }}
         title="Add Attendance"
       >
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1109,11 +1188,25 @@ export default function AttendancePage() {
           </Select>
         </div>
         <div className="mt-3 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setOpenAttend(false)}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setOpenAttend(false);
+              setAttendanceError(null);
+            }}
+          >
             Cancel
           </Button>
-          <Button onClick={addAttendance}>Save</Button>
+          <Button onClick={addAttendance} disabled={!canSaveAttendance}>
+            {attendanceSaving && <Loader className="mr-1 h-4 w-4 animate-spin" />}
+            Save
+          </Button>
         </div>
+        {attendanceError && (
+          <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {attendanceError}
+          </div>
+        )}
       </Modal>
 
       {/* --------- Edit Modals --------- */}
