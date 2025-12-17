@@ -54,10 +54,25 @@ export function Sidebar() {
   const nav: NavItem[] = [
     { key: "overview", href: "/dashboard", label: "Overview", icon: LayoutDashboard },
 
-    { key: "attendance", href: "/dashboard/attendance", label: "Attendance", icon: LineChart },
     { key: "courses", href: "/dashboard/courses", label: "Courses", icon: BookOpen },
-    { key: "teachers", href: "/dashboard/teachers", label: "Teachers", icon: Users },
-    { key: "students", href: "/dashboard/students", label: "Students", icon: GraduationCap },
+    {
+      key: "teachers",
+      label: "Teachers",
+      icon: Users,
+      children: [
+        { href: "/dashboard/teachers", label: "Directory" },
+        { href: "/dashboard/sessions", label: "Sessions" },
+      ],
+    },
+    {
+      key: "students",
+      label: "Students",
+      icon: GraduationCap,
+      children: [
+        { href: "/dashboard/students", label: "Directory" },
+        { href: "/dashboard/attendance", label: "Attendance" },
+      ],
+    },
 
     { key: "settings", href: "/dashboard/settings", label: "Settings", icon: Settings },
   ];

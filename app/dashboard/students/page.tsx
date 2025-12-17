@@ -19,6 +19,8 @@ type Student = {
   id: string;
   name: string;
   email?: string | null;
+  phone?: string | null;
+  country?: string | null;
   program?: string | null;
   class_name?: string | null;
   created_at?: string | null;
@@ -48,12 +50,16 @@ export default function StudentsPage() {
   const [openStudentModal, setOpenStudentModal] = React.useState(false);
   const [newStudentName, setNewStudentName] = React.useState("");
   const [newStudentEmail, setNewStudentEmail] = React.useState("");
+  const [newStudentPhone, setNewStudentPhone] = React.useState("");
+  const [newStudentCountry, setNewStudentCountry] = React.useState("");
   const [studentSaving, setStudentSaving] = React.useState(false);
   const [studentError, setStudentError] = React.useState<string | null>(null);
   const [openEditStudent, setOpenEditStudent] = React.useState(false);
   const [editStudentId, setEditStudentId] = React.useState<string | null>(null);
   const [editStudentName, setEditStudentName] = React.useState("");
   const [editStudentEmail, setEditStudentEmail] = React.useState("");
+  const [editStudentPhone, setEditStudentPhone] = React.useState("");
+  const [editStudentCountry, setEditStudentCountry] = React.useState("");
   const [editStudentProgram, setEditStudentProgram] = React.useState("");
   const [editStudentClass, setEditStudentClass] = React.useState("");
   const [editStudentSaving, setEditStudentSaving] = React.useState(false);
@@ -105,7 +111,7 @@ export default function StudentsPage() {
   }, []);
 
   const filtered = students.filter((s) =>
-    [s.name, s.email, s.program, s.class_name]
+    [s.name, s.email, s.program, s.class_name, s.phone, s.country]
       .filter(Boolean)
       .some((field) => field!.toLowerCase().includes(query.toLowerCase()))
   );
@@ -212,6 +218,8 @@ export default function StudentsPage() {
                         </a>
                       </div>
                     )}
+                    {s.phone && <div className="text-slate-600">Phone: {s.phone}</div>}
+                    {s.country && <div className="text-slate-600">Country: {s.country}</div>}
                     {s.class_name && <div className="text-slate-600">Class: {s.class_name}</div>}
                     {s.created_at && (
                       <div className="text-xs text-slate-500">
@@ -237,6 +245,8 @@ export default function StudentsPage() {
                           setEditStudentEmail(s.email ?? "");
                           setEditStudentProgram(s.program ?? "");
                           setEditStudentClass(s.class_name ?? "");
+                          setEditStudentPhone(s.phone ?? "");
+                          setEditStudentCountry(s.country ?? "");
                           setEditStudentError(null);
                           setOpenEditStudent(true);
                         }}
@@ -276,6 +286,8 @@ export default function StudentsPage() {
                     <th className="py-2 pr-3">Email</th>
                     <th className="py-2 pr-3">Program</th>
                     <th className="py-2 pr-3">Class</th>
+                    <th className="py-2 pr-3">Phone</th>
+                    <th className="py-2 pr-3">Country</th>
                     <th className="py-2 pr-3">Added</th>
                     <th className="py-2 pr-0 text-right">Actions</th>
                   </tr>
@@ -290,6 +302,8 @@ export default function StudentsPage() {
                       <td className="py-2 pr-3">
                         {s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"}
                       </td>
+                      <td className="py-2 pr-3">{s.phone || "—"}</td>
+                      <td className="py-2 pr-3">{s.country || "—"}</td>
                       <td className="py-2 pr-0 text-right">
                         <div className="inline-flex gap-2">
                           <Button
@@ -335,11 +349,11 @@ export default function StudentsPage() {
                   ))}
                   {!filtered.length && (
                     <tr>
-                      <td className="py-6 text-center text-slate-500" colSpan={6}>
-                        No students found. Use “Add Student” to get started.
-                      </td>
-                    </tr>
-                  )}
+                  <td className="py-6 text-center text-slate-500" colSpan={8}>
+                    No students found. Use “Add Student” to get started.
+                  </td>
+                </tr>
+              )}
                 </tbody>
               </table>
             </div>
@@ -379,6 +393,20 @@ export default function StudentsPage() {
                 name="student-email"
                 className="h-9"
               />
+              <Input
+                placeholder="Phone (optional)"
+                value={newStudentPhone}
+                onChange={(e) => setNewStudentPhone(e.target.value)}
+                name="student-phone"
+                className="h-9"
+              />
+              <Input
+                placeholder="Country (optional)"
+                value={newStudentCountry}
+                onChange={(e) => setNewStudentCountry(e.target.value)}
+                name="student-country"
+                className="h-9"
+              />
               {studentError && (
                 <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {studentError}
@@ -398,11 +426,18 @@ export default function StudentsPage() {
                     const res = await fetch("/api/students", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ name: newStudentName.trim(), email: newStudentEmail || undefined }),
+                      body: JSON.stringify({
+                        name: newStudentName.trim(),
+                        email: newStudentEmail || undefined,
+                        phone: newStudentPhone || undefined,
+                        country: newStudentCountry || undefined,
+                      }),
                     });
                     if (!res.ok) throw new Error(await res.text());
                     setNewStudentName("");
                     setNewStudentEmail("");
+                    setNewStudentPhone("");
+                    setNewStudentCountry("");
                     setOpenStudentModal(false);
                     const sRes = await fetch("/api/students", { cache: "no-store" });
                     if (sRes.ok) setStudents((await sRes.json()) as Student[]);
@@ -582,6 +617,18 @@ export default function StudentsPage() {
                 className="h-9"
               />
               <Input
+                placeholder="Phone (optional)"
+                value={editStudentPhone}
+                onChange={(e) => setEditStudentPhone(e.target.value)}
+                className="h-9"
+              />
+              <Input
+                placeholder="Country (optional)"
+                value={editStudentCountry}
+                onChange={(e) => setEditStudentCountry(e.target.value)}
+                className="h-9"
+              />
+              <Input
                 placeholder="Program (optional)"
                 value={editStudentProgram}
                 onChange={(e) => setEditStudentProgram(e.target.value)}
@@ -616,6 +663,8 @@ export default function StudentsPage() {
                       body: JSON.stringify({
                         name: editStudentName.trim(),
                         email: editStudentEmail.trim() || null,
+                        phone: editStudentPhone.trim() || null,
+                        country: editStudentCountry.trim() || null,
                         program: editStudentProgram.trim() || null,
                         class_name: editStudentClass.trim() || null,
                       }),
@@ -674,6 +723,8 @@ export default function StudentsPage() {
                 </CardHeader>
                 <CardContent className="space-y-1 text-sm text-slate-700">
                   <div>Email: {detailStudent.email || "—"}</div>
+                  <div>Phone: {detailStudent.phone || "—"}</div>
+                  <div>Country: {detailStudent.country || "—"}</div>
                   <div>Program: {detailStudent.program || "—"}</div>
                   <div>Class: {detailStudent.class_name || "—"}</div>
                   <div>Joined: {detailStudent.created_at ? formatDateTime(detailStudent.created_at) : "—"}</div>

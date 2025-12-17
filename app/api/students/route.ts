@@ -8,6 +8,8 @@ import { respondWithError } from "@/lib/api/errors";
 const studentSchema = z.object({
   name: z.string().min(1),
   email: z.string().email().optional(),
+  phone: z.string().optional(),
+  country: z.string().optional(),
   program: z.string().optional(),
   duration_weeks: z.number().int().nonnegative().optional(),
   sessions_per_week: z.number().int().nonnegative().optional(),
