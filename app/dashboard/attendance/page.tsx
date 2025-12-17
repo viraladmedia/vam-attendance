@@ -191,7 +191,7 @@ export default function AttendancePage() {
   const [viewMode, setViewMode] = React.useState<"list" | "calendar">("list");
 
   // Filters & search
-  const [teacherFilter, setTeacherFilter] = React.useState<string>("all");
+  const [teacherFilter] = React.useState<string>("all"); // hidden filter (always all)
   const [studentFilter, setStudentFilter] = React.useState<string>("all");
   const [query, setQuery] = React.useState("");
   const deferredQuery = React.useDeferredValue(query);
@@ -704,72 +704,7 @@ export default function AttendancePage() {
 
       {/* Controls */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="w-[220px]">
-          <Select
-            value={teacherFilter}
-            onValueChange={setTeacherFilter}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Filter by teacher" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Teachers</SelectItem>
-              {teachers.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="w-[220px]">
-          <Select
-            value={studentFilter}
-            onValueChange={setStudentFilter}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Filter by student" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Students</SelectItem>
-              {students.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="min-w-[180px] max-w-[360px] flex-1">
-          <Input
-            placeholder="Search student / email / program…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="h-9"
-          />
-        </div>
-
         <div className="ml-auto flex items-center gap-2">
-          <div className="flex rounded-md border border-slate-200 bg-white p-0.5">
-            <Button
-              size="sm"
-              variant={viewMode === "list" ? "default" : "ghost"}
-              className="px-3"
-              onClick={() => setViewMode("list")}
-            >
-              List
-            </Button>
-            <Button
-              size="sm"
-              variant={viewMode === "calendar" ? "default" : "ghost"}
-              className="px-3"
-              onClick={() => setViewMode("calendar")}
-            >
-              Calendar
-            </Button>
-          </div>
           <Button
             onClick={() => {
               setAttendanceError(null);
@@ -990,6 +925,49 @@ export default function AttendancePage() {
               <CardTitle className="text-sm font-semibold">
                 Attendance ({viewMode === "list" ? "List" : "Calendar"} view)
               </CardTitle>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <div className="w-[200px]">
+                  <Select value={studentFilter} onValueChange={setStudentFilter}>
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue placeholder="Filter by student" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Students</SelectItem>
+                      {students.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex rounded-md border border-slate-200 bg-white p-0.5">
+                  <Button
+                    size="sm"
+                    variant={viewMode === "list" ? "default" : "ghost"}
+                    className="px-3"
+                    onClick={() => setViewMode("list")}
+                  >
+                    List
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={viewMode === "calendar" ? "default" : "ghost"}
+                    className="px-3"
+                    onClick={() => setViewMode("calendar")}
+                  >
+                    Calendar
+                  </Button>
+                </div>
+                <div className="flex-1 min-w-[180px] max-w-[320px]">
+                  <Input
+                    placeholder="Search student / email / program…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="overflow-x-auto pt-0">
               {viewMode === "list" && (
