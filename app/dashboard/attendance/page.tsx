@@ -292,6 +292,7 @@ export default function AttendancePage() {
 
   /* ------------ Derived ------------ */
   const tMap = React.useMemo(() => byId(teachers), [teachers]);
+  const sessionMap = React.useMemo(() => byId(sessions), [sessions]);
 
   const filteredStudents = React.useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
@@ -364,16 +365,18 @@ export default function AttendancePage() {
     return days;
   }, [calendarMonth]);
 
-  const sessionsByDay = React.useMemo(() => {
-    const map = new Map<string, Session[]>();
-    filteredSessions.forEach((s) => {
-      const key = new Date(s.starts_at).toDateString();
+  const attendanceByDay = React.useMemo(() => {
+    const map = new Map<string, Attendance[]>();
+    attendance.forEach((a) => {
+      const sess = sessionMap.get(a.session_id);
+      if (!sess) return;
+      const key = new Date(sess.starts_at).toDateString();
       const arr = map.get(key) || [];
-      arr.push(s);
+      arr.push(a);
       map.set(key, arr);
     });
     return map;
-  }, [filteredSessions]);
+  }, [attendance, sessionMap]);
 
   const addSessionRPC = async () => {
     if (!sessTeacherId || !sessStartsAt) return;
@@ -735,15 +738,6 @@ export default function AttendancePage() {
             </Button>
           </div>
           <Button
-            variant="outline"
-            onClick={() => {
-              setSessionError(null);
-              setOpenSession(true);
-            }}
-          >
-            Add Session
-          </Button>
-          <Button
             onClick={() => {
               setAttendanceError(null);
               setOpenAttend(true);
@@ -961,87 +955,82 @@ export default function AttendancePage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold">
-                Sessions & Attendance ({viewMode === "list" ? "List" : "Calendar"} view)
+                Attendance ({viewMode === "list" ? "List" : "Calendar"} view)
               </CardTitle>
             </CardHeader>
             <CardContent className="overflow-x-auto pt-0">
               {viewMode === "list" && (
-                <>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-slate-500">
-                        <th className="py-2 pr-3">Title</th>
-                        <th className="py-2 pr-3">Teacher</th>
-                        <th className="py-2 pr-3">Starts</th>
-                        <th className="py-2 pr-3">Present / Total</th>
-                        <th className="py-2 pr-0 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredSessions.map((s) => {
-                        const total = attendance.filter(
-                          (a) => a.session_id === s.id
-                        ).length;
-                        const present = attendance.filter(
-                          (a) =>
-                            a.session_id === s.id && a.status === "present"
-                        ).length;
-                        const tName = s.teacher_id
-                          ? tMap.get(s.teacher_id)?.name ?? "—"
-                          : "—";
-                        return (
-                          <tr key={s.id} className="border-t">
-                            <td className="py-2 pr-3">
-                              {s.title ?? "Session"}
-                            </td>
-                            <td className="py-2 pr-3">{tName}</td>
-                            <td className="py-2 pr-3">
-                              {fmtDate(s.starts_at)}
-                            </td>
-                            <td className="py-2 pr-3">
-                              {present} / {total}
-                            </td>
-                            <td className="py-2 pr-0 text-right">
-                              <div className="inline-flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => onOpenEditSession(s)}
-                                >
-                                  <Pencil className="mr-1 h-4 w-4" /> Edit
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 hover:bg-red-50"
-                                  onClick={() =>
-                                    setConfirmSession({
-                                      open: true,
-                                      id: s.id,
-                                      title: s.title ?? "Session",
-                                    })
-                                  }
-                                >
-                                  <Trash2 className="mr-1 h-4 w-4" /> Delete
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {!filteredSessions.length && (
-                        <tr>
-                          <td
-                            className="py-6 text-center text-slate-500"
-                            colSpan={5}
-                          >
-                            No sessions yet.
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-slate-500">
+                      <th className="py-2 pr-3">Session</th>
+                      <th className="py-2 pr-3">Student</th>
+                      <th className="py-2 pr-3">Status</th>
+                      <th className="py-2 pr-0 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attendance.map((a) => {
+                      const sess = sessionMap.get(a.session_id);
+                      const stu = students.find((s) => s.id === a.student_id);
+                      return (
+                        <tr
+                          key={`${a.session_id}:${a.student_id}`}
+                          className="border-t"
+                        >
+                          <td className="py-2 pr-3">
+                            {(sess?.title ?? "Session")} •{" "}
+                            {sess ? fmtDate(sess.starts_at) : ""}
+                          </td>
+                          <td className="py-2 pr-3">
+                            {stu?.name ?? "—"}
+                          </td>
+                          <td className="py-2 pr-3 capitalize">
+                            {a.status}
+                          </td>
+                          <td className="py-2 pr-0 text-right">
+                            <div className="inline-flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => onOpenEditAttendance(a)}
+                              >
+                                <Pencil className="mr-1 h-4 w-4" /> Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 hover:bg-red-50"
+                                onClick={() =>
+                                  setConfirmAttendance({
+                                    open: true,
+                                    session_id: a.session_id,
+                                    student_id: a.student_id,
+                                    label: `${stu?.name ?? "Student"} • ${
+                                      sess?.title ?? "Session"
+                                    }`,
+                                  })
+                                }
+                              >
+                                <Trash2 className="mr-1 h-4 w-4" /> Delete
+                              </Button>
+                            </div>
                           </td>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </>
+                      );
+                    })}
+                    {!attendance.length && (
+                      <tr>
+                        <td
+                          className="py-6 text-center text-slate-500"
+                          colSpan={4}
+                        >
+                          No attendance yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               )}
 
               {viewMode === "calendar" && (
@@ -1086,16 +1075,11 @@ export default function AttendancePage() {
                     ))}
                   </div>
                   <div className="grid grid-cols-7 gap-2">
-                    {calendarDays.length === 0 && (
-                      <div className="col-span-7 rounded-md border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-600">
-                        No sessions yet. Add a session to see it on the calendar view.
-                      </div>
-                    )}
                     {calendarDays.map(({ date, key }) => {
-                      const daySessions = sessionsByDay.get(key) || [];
+                      const dayAttendance = attendanceByDay.get(key) || [];
                       const isToday =
                         new Date().toDateString() === date.toDateString();
-                      const inMonth = date.getMonth() === new Date().getMonth();
+                      const inMonth = date.getMonth() === calendarMonth.month;
                       return (
                         <div
                           key={key}
@@ -1114,38 +1098,27 @@ export default function AttendancePage() {
                             )}
                           </div>
                           <div className="space-y-1">
-                            {daySessions.map((s) => {
-                              const time = new Date(s.starts_at).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              });
-                              const total = attendance.filter(
-                                (a) => a.session_id === s.id
-                              ).length;
-                              const present = attendance.filter(
-                                (a) =>
-                                  a.session_id === s.id && a.status === "present"
-                              ).length;
+                            {dayAttendance.map((a) => {
+                              const sess = sessionMap.get(a.session_id);
+                              const stu = students.find((s) => s.id === a.student_id);
                               return (
                                 <div
-                                  key={s.id}
+                                  key={`${a.session_id}:${a.student_id}`}
                                   className="rounded border border-slate-200 bg-slate-50 px-2 py-1"
                                 >
                                   <div className="text-[11px] font-semibold text-slate-800">
-                                    {s.title ?? "Session"}
+                                    {stu?.name ?? "Student"}
                                   </div>
                                   <div className="flex justify-between text-[10px] text-slate-600">
-                                    <span>{time}</span>
-                                    <span>
-                                      {present}/{total} present
-                                    </span>
+                                    <span>{sess?.title ?? "Session"}</span>
+                                    <span className="capitalize">{a.status}</span>
                                   </div>
                                 </div>
                               );
                             })}
-                            {!daySessions.length && (
+                            {!dayAttendance.length && (
                               <div className="rounded border border-dashed border-slate-200 px-2 py-1 text-slate-400">
-                                No sessions
+                                No attendance
                               </div>
                             )}
                           </div>
@@ -1155,91 +1128,6 @@ export default function AttendancePage() {
                   </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">
-                All Attendance
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="overflow-x-auto pt-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-slate-500">
-                    <th className="py-2 pr-3">Session</th>
-                    <th className="py-2 pr-3">Student</th>
-                    <th className="py-2 pr-3">Status</th>
-                    <th className="py-2 pr-0 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attendance.map((a) => {
-                    const sess = sessions.find(
-                      (s) => s.id === a.session_id
-                    );
-                    const stu = students.find(
-                      (s) => s.id === a.student_id
-                    );
-                    return (
-                      <tr
-                        key={`${a.session_id}:${a.student_id}`}
-                        className="border-t"
-                      >
-                        <td className="py-2 pr-3">
-                          {(sess?.title ?? "Session")} •{" "}
-                          {sess ? fmtDate(sess.starts_at) : ""}
-                        </td>
-                        <td className="py-2 pr-3">
-                          {stu?.name ?? "—"}
-                        </td>
-                        <td className="py-2 pr-3 capitalize">
-                          {a.status}
-                        </td>
-                        <td className="py-2 pr-0 text-right">
-                          <div className="inline-flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => onOpenEditAttendance(a)}
-                            >
-                              <Pencil className="mr-1 h-4 w-4" /> Edit
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 hover:bg-red-50"
-                              onClick={() =>
-                                setConfirmAttendance({
-                                  open: true,
-                                  session_id: a.session_id,
-                                  student_id: a.student_id,
-                                  label: `${stu?.name ?? "Student"} • ${
-                                    sess?.title ?? "Session"
-                                  }`,
-                                })
-                              }
-                            >
-                              <Trash2 className="mr-1 h-4 w-4" /> Delete
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {!attendance.length && (
-                    <tr>
-                      <td
-                        className="py-6 text-center text-slate-500"
-                        colSpan={4}
-                      >
-                        No attendance yet.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
             </CardContent>
           </Card>
         </div>

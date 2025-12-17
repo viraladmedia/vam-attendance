@@ -116,7 +116,7 @@ export function Sidebar() {
               collapsed ? "text-sm" : "text-base sm:text-lg"
             )}
           >
-            VIRAL AD MEDIA
+            ATTENDACE MANAGER
           </div>
         </Link>
         <button
