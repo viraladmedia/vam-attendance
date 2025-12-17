@@ -37,6 +37,7 @@ export default function TeachersPage() {
   const [courseType, setCourseType] = React.useState("");
   const [courseDuration, setCourseDuration] = React.useState("");
   const [courseSessionsPerWeek, setCourseSessionsPerWeek] = React.useState("");
+  const [courseStartsAt, setCourseStartsAt] = React.useState("");
   const [courseSaving, setCourseSaving] = React.useState(false);
   const [courseError, setCourseError] = React.useState<string | null>(null);
   const [courseSuccess, setCourseSuccess] = React.useState<string | null>(null);
@@ -294,6 +295,12 @@ export default function TeachersPage() {
                 onChange={(e) => setCourseSessionsPerWeek(e.target.value)}
                 className="h-9"
               />
+              <Input
+                type="datetime-local"
+                value={courseStartsAt}
+                onChange={(e) => setCourseStartsAt(e.target.value)}
+                className="h-9 sm:col-span-2"
+              />
             </div>
 
             {courseSuccess && (
@@ -327,6 +334,7 @@ export default function TeachersPage() {
                     if (courseType) payload.course_type = courseType.trim();
                     if (courseDuration) payload.duration_weeks = Number(courseDuration);
                     if (courseSessionsPerWeek) payload.sessions_per_week = Number(courseSessionsPerWeek);
+                    if (courseStartsAt) payload.starts_at = new Date(courseStartsAt).toISOString();
                     const res = await fetch("/api/courses", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
@@ -339,6 +347,7 @@ export default function TeachersPage() {
                     setCourseType("");
                     setCourseDuration("");
                     setCourseSessionsPerWeek("");
+                    setCourseStartsAt("");
                     setOpenCourse(false);
                   } catch (err) {
                     setCourseError(err instanceof Error ? err.message : "Failed to create course");

@@ -53,6 +53,25 @@ export async function POST(request: Request) {
       .select()
       .single();
     if (error) throw error;
+
+    const sessionStartsAt = payload.starts_at ?? new Date().toISOString();
+    const { error: sessionError } = await supabase
+      .from("sessions")
+      .insert([
+        {
+          org_id: orgId,
+          course_id: data.id,
+          teacher_id: payload.lead_teacher_id ?? null,
+          title: payload.title ? `${payload.title} • Session 1` : "Session 1",
+          starts_at: sessionStartsAt,
+          class_name: payload.course_type ?? null,
+          description: payload.description ?? null,
+        },
+      ])
+      .select("id")
+      .single();
+    if (sessionError) throw sessionError;
+
     await logAudit(supabase, orgId, session.user.id, "create", "course", data.id, { title: data.title });
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
