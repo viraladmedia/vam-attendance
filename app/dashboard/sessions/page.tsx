@@ -5,7 +5,14 @@ import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, Plus } from "lucide-react";
 
 type Session = {
   id: string;
@@ -25,10 +32,17 @@ export default function SessionsPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<"list" | "calendar">("list");
+  const [teacherFilter, setTeacherFilter] = React.useState<string>("all");
   const [calendarMonth, setCalendarMonth] = React.useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
+  const [openNew, setOpenNew] = React.useState(false);
+  const [newTeacher, setNewTeacher] = React.useState<string>("");
+  const [newTitle, setNewTitle] = React.useState("");
+  const [newStartsAt, setNewStartsAt] = React.useState("");
+  const [newSaving, setNewSaving] = React.useState(false);
+  const [newError, setNewError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const load = async () => {
@@ -56,16 +70,23 @@ export default function SessionsPage() {
   }, []);
 
   const tMap = React.useMemo(() => new Map(teachers.map((t) => [t.id, t.name])), [teachers]);
+  const filteredSessions = React.useMemo(
+    () =>
+      teacherFilter === "all"
+        ? sessions
+        : sessions.filter((s) => s.teacher_id === teacherFilter),
+    [sessions, teacherFilter]
+  );
   const sessionsByDay = React.useMemo(() => {
     const map = new Map<string, Session[]>();
-    sessions.forEach((s) => {
+    filteredSessions.forEach((s) => {
       const key = new Date(s.starts_at).toDateString();
       const arr = map.get(key) || [];
       arr.push(s);
       map.set(key, arr);
     });
     return map;
-  }, [sessions]);
+  }, [filteredSessions]);
 
   const calendarDays = React.useMemo(() => {
     const monthStart = new Date(calendarMonth.year, calendarMonth.month, 1);
@@ -92,6 +113,25 @@ export default function SessionsPage() {
             <p className="text-xs text-slate-500">View all scheduled sessions and attendance counts.</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button onClick={() => setOpenNew(true)} className="gap-1">
+              <Plus className="h-4 w-4" />
+              New Session
+            </Button>
+            <div className="w-[190px]">
+              <Select value={teacherFilter} onValueChange={setTeacherFilter}>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Filter by teacher" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Teachers</SelectItem>
+                  {teachers.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex rounded-md border border-slate-200 bg-white p-0.5">
               <Button
                 size="sm"
@@ -134,7 +174,7 @@ export default function SessionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {sessions.map((s) => {
+                {filteredSessions.map((s) => {
                   const total = attendance.filter((a) => a.session_id === s.id).length;
                   const present = attendance.filter(
                     (a) => a.session_id === s.id && a.status === "present"
@@ -157,7 +197,7 @@ export default function SessionsPage() {
                     </tr>
                   );
                 })}
-                {!sessions.length && (
+                {!filteredSessions.length && (
                   <tr>
                     <td className="py-6 text-center text-slate-500" colSpan={4}>
                       No sessions yet.
@@ -268,6 +308,100 @@ export default function SessionsPage() {
           )}
         </CardContent>
       </Card>
+
+      {openNew && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseDown={() => setOpenNew(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-md rounded-2xl border bg-white p-4 shadow-xl"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-800">Add Session</h3>
+              <button
+                aria-label="Close"
+                className="h-8 w-8 rounded-md hover:bg-slate-100"
+                onClick={() => setOpenNew(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-2">
+              <Select value={newTeacher || "none"} onValueChange={(v) => setNewTeacher(v === "none" ? "" : v)}>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Teacher" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Unassigned</SelectItem>
+                  {teachers.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <input
+                className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-slate-400"
+                placeholder="Title (optional)"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+              />
+              <input
+                className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-slate-400"
+                type="datetime-local"
+                value={newStartsAt}
+                onChange={(e) => setNewStartsAt(e.target.value)}
+              />
+              {newError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {newError}
+                </div>
+              )}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOpenNew(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={newSaving || !newStartsAt}
+                onClick={async () => {
+                  try {
+                    setNewSaving(true);
+                    setNewError(null);
+                    const payload: any = {
+                      teacher_id: newTeacher || undefined,
+                      title: newTitle.trim() || undefined,
+                      starts_at: new Date(newStartsAt).toISOString(),
+                    };
+                    const res = await fetch("/api/sessions", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(payload),
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                    setOpenNew(false);
+                    setNewTitle("");
+                    setNewTeacher("");
+                    setNewStartsAt("");
+                    const [sRes, aRes] = await Promise.all([
+                      fetch("/api/sessions", { cache: "no-store" }),
+                      fetch("/api/attendance", { cache: "no-store" }),
+                    ]);
+                    if (sRes.ok) setSessions((await sRes.json()) as Session[]);
+                    if (aRes.ok) setAttendance((await aRes.json()) as Attendance[]);
+                  } catch (err) {
+                    setNewError(err instanceof Error ? err.message : "Failed to create session");
+                  } finally {
+                    setNewSaving(false);
+                  }
+                }}
+              >
+                {newSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

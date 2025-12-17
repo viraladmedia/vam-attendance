@@ -192,6 +192,7 @@ export default function AttendancePage() {
 
   // Filters & search
   const [teacherFilter, setTeacherFilter] = React.useState<string>("all");
+  const [studentFilter, setStudentFilter] = React.useState<string>("all");
   const [query, setQuery] = React.useState("");
   const deferredQuery = React.useDeferredValue(query);
 
@@ -315,6 +316,19 @@ export default function AttendancePage() {
       );
   }, [students, teacherFilter, attendance, sessions, deferredQuery]);
 
+  const filteredAttendance = React.useMemo(
+    () =>
+      attendance.filter((a) => {
+        if (studentFilter !== "all" && a.student_id !== studentFilter) return false;
+        if (teacherFilter !== "all") {
+          const sess = sessionMap.get(a.session_id);
+          return sess?.teacher_id === teacherFilter;
+        }
+        return true;
+      }),
+    [attendance, studentFilter, teacherFilter, sessionMap]
+  );
+
   const filteredSessions = React.useMemo(
     () =>
       sessions.filter((s) =>
@@ -367,7 +381,7 @@ export default function AttendancePage() {
 
   const attendanceByDay = React.useMemo(() => {
     const map = new Map<string, Attendance[]>();
-    attendance.forEach((a) => {
+    filteredAttendance.forEach((a) => {
       const sess = sessionMap.get(a.session_id);
       if (!sess) return;
       const key = new Date(sess.starts_at).toDateString();
@@ -376,7 +390,7 @@ export default function AttendancePage() {
       map.set(key, arr);
     });
     return map;
-  }, [attendance, sessionMap]);
+  }, [filteredAttendance, sessionMap]);
 
   const addSessionRPC = async () => {
     if (!sessTeacherId || !sessStartsAt) return;
@@ -703,6 +717,25 @@ export default function AttendancePage() {
               {teachers.map((t) => (
                 <SelectItem key={t.id} value={t.id}>
                   {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="w-[220px]">
+          <Select
+            value={studentFilter}
+            onValueChange={setStudentFilter}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Filter by student" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Students</SelectItem>
+              {students.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name}
                 </SelectItem>
               ))}
             </SelectContent>

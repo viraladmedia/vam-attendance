@@ -116,7 +116,7 @@ export function Sidebar() {
               collapsed ? "text-sm" : "text-base sm:text-lg"
             )}
           >
-            ATTENDACE MANAGER
+            VAM-ATTENDACE
           </div>
         </Link>
         <button
