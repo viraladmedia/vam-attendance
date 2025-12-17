@@ -475,14 +475,14 @@ export default function CoursesPage() {
                 </SelectContent>
               </Select>
               <Select
-                value={editLeadTeacher || ""}
-                onValueChange={(v) => setEditLeadTeacher(v || null)}
+                value={editLeadTeacher ?? "none"}
+                onValueChange={(v) => setEditLeadTeacher(v === "none" ? null : v)}
               >
                 <SelectTrigger className="h-9 w-full">
                   <SelectValue placeholder="Lead teacher" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="none">Unassigned</SelectItem>
                   {teachers.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.name}
@@ -610,14 +610,14 @@ export default function CoursesPage() {
                 </SelectContent>
               </Select>
               <Select
-                value={editEnrollTeacher || ""}
-                onValueChange={(v) => setEditEnrollTeacher(v || null)}
+                value={editEnrollTeacher ?? "none"}
+                onValueChange={(v) => setEditEnrollTeacher(v === "none" ? null : v)}
               >
                 <SelectTrigger className="h-9 w-full">
                   <SelectValue placeholder="Assign teacher" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="none">Unassigned</SelectItem>
                   {teachers.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.name}

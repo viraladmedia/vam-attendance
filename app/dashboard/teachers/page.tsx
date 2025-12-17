@@ -381,11 +381,15 @@ export default function TeachersPage() {
                   <SelectItem value="1on1">1 on 1</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={courseLeadTeacher} onValueChange={setCourseLeadTeacher}>
+              <Select
+                value={courseLeadTeacher || "none"}
+                onValueChange={(v) => setCourseLeadTeacher(v === "none" ? "" : v)}
+              >
                 <SelectTrigger className="h-9 w-full">
                   <SelectValue placeholder="Lead teacher" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">Unassigned</SelectItem>
                   {teachers.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.name}
