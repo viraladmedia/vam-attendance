@@ -345,11 +345,14 @@ export default function AttendancePage() {
     attendSessionId && attendStudentId && attendStatus && !attendanceSaving
   );
 
+  const [calendarMonth, setCalendarMonth] = React.useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() };
+  });
+
   const calendarDays = React.useMemo(() => {
-    if (!filteredSessions.length) return [];
-    const today = new Date();
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const monthStart = new Date(calendarMonth.year, calendarMonth.month, 1);
+    const monthEnd = new Date(calendarMonth.year, calendarMonth.month + 1, 0);
     const start = new Date(monthStart);
     start.setDate(start.getDate() - start.getDay());
     const end = new Date(monthEnd);
@@ -359,7 +362,7 @@ export default function AttendancePage() {
       days.push({ date: new Date(d), key: new Date(d).toDateString() });
     }
     return days;
-  }, [filteredSessions]);
+  }, [calendarMonth]);
 
   const sessionsByDay = React.useMemo(() => {
     const map = new Map<string, Session[]>();
@@ -1043,8 +1046,37 @@ export default function AttendancePage() {
 
               {viewMode === "calendar" && (
                 <div className="space-y-2">
-                  <div className="text-sm font-medium text-slate-700">
-                    {new Date().toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+                  <div className="flex items-center justify-between text-sm font-medium text-slate-700">
+                    <button
+                      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs hover:bg-slate-50"
+                      onClick={() => {
+                        setCalendarMonth((prev) => {
+                          const m = prev.month === 0 ? 11 : prev.month - 1;
+                          const y = prev.month === 0 ? prev.year - 1 : prev.year;
+                          return { year: y, month: m };
+                        });
+                      }}
+                    >
+                      ←
+                    </button>
+                    <span>
+                      {new Date(calendarMonth.year, calendarMonth.month, 1).toLocaleDateString(
+                        undefined,
+                        { month: "long", year: "numeric" }
+                      )}
+                    </span>
+                    <button
+                      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs hover:bg-slate-50"
+                      onClick={() => {
+                        setCalendarMonth((prev) => {
+                          const m = prev.month === 11 ? 0 : prev.month + 1;
+                          const y = prev.month === 11 ? prev.year + 1 : prev.year;
+                          return { year: y, month: m };
+                        });
+                      }}
+                    >
+                      →
+                    </button>
                   </div>
                   <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-slate-500">
                     {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
