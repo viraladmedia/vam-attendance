@@ -747,7 +747,7 @@ export default function StudentsPage() {
                         return (
                           <tr key={a.id} className="border-t">
                             <td className="py-2 pr-3">
-                              {(sess?.title ?? "Session")} • {sess ? fmtDate(sess.starts_at) : ""}
+                              {(sess?.title ?? "Session")} • {sess ? formatDateTime(sess.starts_at) : ""}
                             </td>
                             <td className="py-2 pr-3 capitalize">{a.status}</td>
                             <td className="py-2 pr-3">{formatDateTime(a.noted_at)}</td>
