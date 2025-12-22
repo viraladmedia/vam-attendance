@@ -36,7 +36,7 @@ import {
   getAllStudents,
   recordAttendance,
 } from "@/lib/supabase/database";
-import dynamic from "next/dynamic";
+import NextDynamic from "next/dynamic";
 
 // Type definitions
 type TabKey = "overview" | "teachers" | "students" | "sessions";
@@ -1593,4 +1593,4 @@ function Stat({ title, value }: { title: string; value: React.ReactNode }) {
   );
 }
 
-export default dynamic(() => Promise.resolve(AttendancePage), { ssr: false });
+export default NextDynamic(() => Promise.resolve(AttendancePage), { ssr: false });
