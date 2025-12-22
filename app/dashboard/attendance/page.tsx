@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Loader, Pencil, Trash2 } from "lucide-react";
 import { getBrowserSupabase } from "@/lib/supabase/client";
+import { getAttendanceStatusColor } from "@/lib/helpers";
 import {
   ResponsiveContainer,
   BarChart as RBarChart,
@@ -175,6 +176,26 @@ const fmtDate = (iso: string) => {
   } catch {
     return "Invalid date";
   }
+};
+
+const statusSurface: Record<Status, string> = {
+  present: "border-green-200 bg-green-50/70",
+  absent: "border-red-200 bg-red-50/70",
+  late: "border-amber-200 bg-amber-50/70",
+};
+
+const renderStatusBadge = (status: Status, size: "sm" | "xs" = "sm") => {
+  const sizeClasses =
+    size === "sm" ? "px-2 py-0.5 text-[11px]" : "px-1.5 py-[2px] text-[10px]";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full font-semibold capitalize ${sizeClasses} ${getAttendanceStatusColor(
+        status
+      )}`}
+    >
+      {status}
+    </span>
+  );
 };
 
 /* Main Page Component */
@@ -992,8 +1013,8 @@ export default function AttendancePage() {
                           <td className="py-2 pr-3">
                             {stu?.name ?? "—"}
                           </td>
-                          <td className="py-2 pr-3 capitalize">
-                            {a.status}
+                          <td className="py-2 pr-3">
+                            {renderStatusBadge(a.status)}
                           </td>
                           <td className="py-2 pr-0 text-right">
                             <div className="inline-flex gap-2">
@@ -1111,14 +1132,16 @@ export default function AttendancePage() {
                               return (
                                 <div
                                   key={`${a.session_id}:${a.student_id}`}
-                                  className="rounded border border-slate-200 bg-slate-50 px-2 py-1"
+                                  className={`rounded border px-2 py-1 ${statusSurface[a.status]}`}
                                 >
-                                  <div className="text-[11px] font-semibold text-slate-800">
-                                    {stu?.name ?? "Student"}
+                                  <div className="mb-0.5 flex items-center justify-between">
+                                    <div className="text-[11px] font-semibold text-slate-800">
+                                      {stu?.name ?? "Student"}
+                                    </div>
+                                    {renderStatusBadge(a.status, "xs")}
                                   </div>
-                                  <div className="flex justify-between text-[10px] text-slate-600">
-                                    <span>{sess?.title ?? "Session"}</span>
-                                    <span className="capitalize">{a.status}</span>
+                                  <div className="text-[10px] text-slate-600">
+                                    {sess?.title ?? "Session"}
                                   </div>
                                 </div>
                               );

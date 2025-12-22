@@ -26,6 +26,20 @@ type Teacher = { id: string; name: string };
 type Course = { id: string; title: string; lead_teacher_id?: string | null };
 
 type Attendance = { session_id: string; status: string };
+type SessionStatus = "upcoming" | "completed";
+
+const getSessionStatus = (startsAt: string): SessionStatus =>
+  new Date(startsAt).getTime() >= Date.now() ? "upcoming" : "completed";
+
+const sessionStatusStyles: Record<SessionStatus, string> = {
+  upcoming: "bg-sky-100 text-sky-800",
+  completed: "bg-emerald-100 text-emerald-800",
+};
+
+const sessionSurfaceStyles: Record<SessionStatus, string> = {
+  upcoming: "border-sky-200 bg-sky-50",
+  completed: "border-emerald-200 bg-emerald-50",
+};
 
 export default function SessionsPage() {
   const [sessions, setSessions] = React.useState<Session[]>([]);
@@ -177,6 +191,7 @@ export default function SessionsPage() {
                   <th className="py-2 pr-3">Title</th>
                   <th className="py-2 pr-3">Teacher</th>
                   <th className="py-2 pr-3">Starts</th>
+                  <th className="py-2 pr-3">Status</th>
                   <th className="py-2 pr-3">Present / Total</th>
                 </tr>
               </thead>
@@ -186,6 +201,7 @@ export default function SessionsPage() {
                   const present = attendance.filter(
                     (a) => a.session_id === s.id && a.status === "present"
                   ).length;
+                  const status = getSessionStatus(s.starts_at);
                   return (
                     <tr key={s.id} className="border-t">
                       <td className="py-2 pr-3">{s.title ?? "Session"}</td>
@@ -197,6 +213,13 @@ export default function SessionsPage() {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
+                      </td>
+                      <td className="py-2 pr-3">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${sessionStatusStyles[status]}`}
+                        >
+                          {status}
+                        </span>
                       </td>
                       <td className="py-2 pr-3">
                         {present} / {total}
@@ -284,19 +307,25 @@ export default function SessionsPage() {
                           const present = attendance.filter(
                             (a) => a.session_id === s.id && a.status === "present"
                           ).length;
+                          const status = getSessionStatus(s.starts_at);
                           return (
                             <div
                               key={s.id}
-                              className="rounded border border-slate-200 bg-slate-50 px-2 py-1"
+                              className={`rounded border px-2 py-1 ${sessionSurfaceStyles[status]}`}
                             >
                               <div className="text-[11px] font-semibold text-slate-800">
                                 {s.title ?? "Session"}
                               </div>
-                              <div className="flex justify-between text-[10px] text-slate-600">
+                              <div className="flex items-center justify-between gap-2 text-[10px] text-slate-600">
                                 <span>{time}</span>
-                                <span>
-                                  {present}/{total} present
+                                <span
+                                  className={`inline-flex items-center rounded-full px-1.5 py-[2px] text-[10px] font-semibold capitalize ${sessionStatusStyles[status]}`}
+                                >
+                                  {status}
                                 </span>
+                              </div>
+                              <div className="text-[10px] text-slate-600">
+                                {present}/{total} present
                               </div>
                             </div>
                           );
