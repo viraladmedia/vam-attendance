@@ -1,6 +1,10 @@
 // File: app/dashboard/attendance/page.tsx
 "use client";
 
+// Force dynamic rendering to avoid static prerender issues on this client-heavy page
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
