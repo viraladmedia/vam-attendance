@@ -3,7 +3,7 @@
 
 // Force dynamic rendering to avoid static prerender issues on this client-heavy page
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 import * as React from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
