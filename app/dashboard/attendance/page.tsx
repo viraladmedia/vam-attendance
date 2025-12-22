@@ -32,6 +32,7 @@ import {
   getAllStudents,
   recordAttendance,
 } from "@/lib/supabase/database";
+import dynamic from "next/dynamic";
 
 // Type definitions
 type TabKey = "overview" | "teachers" | "students" | "sessions";
@@ -199,7 +200,7 @@ const renderStatusBadge = (status: Status, size: "sm" | "xs" = "sm") => {
 };
 
 /* Main Page Component */
-export default function AttendancePage() {
+function AttendancePage() {
   const [tab] = React.useState<TabKey>("sessions");
 
   const sb = React.useMemo(() => getBrowserSupabase(), []);
@@ -1587,3 +1588,5 @@ function Stat({ title, value }: { title: string; value: React.ReactNode }) {
     </Card>
   );
 }
+
+export default dynamic(() => Promise.resolve(AttendancePage), { ssr: false });
