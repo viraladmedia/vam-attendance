@@ -6,9 +6,9 @@ import { consumeRateLimit } from "@/lib/api/rate-limit";
 import { respondWithError } from "@/lib/api/errors";
 
 const studentSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
+  name: z.string().trim().min(1),
+  email: z.string().trim().email(),
+  phone: z.string().trim().min(1),
   country: z.string().optional(),
   program: z.string().optional(),
   duration_weeks: z.number().int().nonnegative().optional(),

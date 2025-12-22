@@ -121,6 +121,14 @@ export default function StudentsPage() {
       .some((field) => field!.toLowerCase().includes(query.toLowerCase()))
   );
 
+  const trimmedNewStudentName = newStudentName.trim();
+  const trimmedNewStudentEmail = newStudentEmail.trim();
+  const trimmedNewStudentPhone = newStudentPhone.trim();
+  const trimmedNewStudentCountry = newStudentCountry.trim();
+  const canSaveStudent = Boolean(
+    trimmedNewStudentName && trimmedNewStudentEmail && trimmedNewStudentPhone && !studentSaving
+  );
+
   // Update selected courses when student selection changes
   React.useEffect(() => {
     if (!enrollStudentId) return;
@@ -392,20 +400,28 @@ export default function StudentsPage() {
                 onChange={(e) => setNewStudentName(e.target.value)}
                 name="student-name"
                 className="h-9"
+                required
+                autoComplete="name"
               />
               <Input
-                placeholder="Email (optional)"
+                type="email"
+                placeholder="Email"
                 value={newStudentEmail}
                 onChange={(e) => setNewStudentEmail(e.target.value)}
                 name="student-email"
                 className="h-9"
+                required
+                autoComplete="email"
               />
               <Input
-                placeholder="Phone (optional)"
+                type="tel"
+                placeholder="Phone"
                 value={newStudentPhone}
                 onChange={(e) => setNewStudentPhone(e.target.value)}
                 name="student-phone"
                 className="h-9"
+                required
+                autoComplete="tel"
               />
               <Input
                 placeholder="Country (optional)"
@@ -425,19 +441,22 @@ export default function StudentsPage() {
                 Cancel
               </Button>
               <Button
-                disabled={studentSaving || !newStudentName.trim()}
+                disabled={!canSaveStudent}
                 onClick={async () => {
                   try {
                     setStudentSaving(true);
                     setStudentError(null);
+                    const name = trimmedNewStudentName;
+                    const email = trimmedNewStudentEmail;
+                    const phone = trimmedNewStudentPhone;
                     const res = await fetch("/api/students", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        name: newStudentName.trim(),
-                        email: newStudentEmail || undefined,
-                        phone: newStudentPhone || undefined,
-                        country: newStudentCountry || undefined,
+                        name,
+                        email,
+                        phone,
+                        country: trimmedNewStudentCountry || undefined,
                       }),
                     });
                     if (!res.ok) throw new Error(await res.text());
