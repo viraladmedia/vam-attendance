@@ -1,3 +1,5 @@
+"use client";
+
 // File: app/dashboard/layout.tsx
 import * as React from "react";
 import { AccountProvider } from "@/components/dashboard/AccountContext";
