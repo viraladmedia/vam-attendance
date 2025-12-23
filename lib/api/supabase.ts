@@ -31,15 +31,15 @@ export async function getRouteContext(): Promise<RouteContext> {
   });
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     throw new ApiError("Unauthorized", 401, "UNAUTHENTICATED");
   }
 
-  const meta = session.user.app_metadata || {};
-  const userMeta = session.user.user_metadata || {};
+  const meta = user.app_metadata || {};
+  const userMeta = user.user_metadata || {};
   let orgId = (meta as any).org_id || (userMeta as any).default_org_id || cookieOrg;
 
   // Fallback: pick the first org the user owns if metadata/cookie missing.
@@ -47,7 +47,7 @@ export async function getRouteContext(): Promise<RouteContext> {
     const { data: orgRows, error: orgErr } = await supabase
       .from("organizations")
       .select("id")
-      .eq("owner_id", session.user.id)
+      .eq("owner_id", user.id)
       .order("created_at", { ascending: true })
       .limit(1);
 
@@ -71,7 +71,7 @@ export async function getRouteContext(): Promise<RouteContext> {
     const { data: memberRows, error: memberErr } = await supabase
       .from("memberships")
       .select("org_id")
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .order("created_at", { ascending: true })
       .limit(1);
 
@@ -93,5 +93,10 @@ export async function getRouteContext(): Promise<RouteContext> {
     throw new ApiError("Organization not set for user", 400, "ORG_NOT_SET");
   }
 
-  return { supabase, session, orgId: String(orgId) };
+  // Fetch session after authenticating user to keep downstream shape
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  return { supabase, session: session!, orgId: String(orgId) };
 }

@@ -37,24 +37,24 @@ export async function middleware(request: NextRequest) {
   );
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
 
-  if (isProtected(pathname) && !session) {
+  if (isProtected(pathname) && !user) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (isAuthPage(pathname) && session) {
+  if (isAuthPage(pathname) && user) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  if (session) {
-    const meta = session.user.app_metadata || {};
-    const userMeta = session.user.user_metadata || {};
+  if (user) {
+    const meta = user.app_metadata || {};
+    const userMeta = user.user_metadata || {};
     const orgId = (meta as any).org_id || (userMeta as any).default_org_id || null;
     const orgName = (meta as any).org_name || (userMeta as any).org_name || "Primary Organization";
 
