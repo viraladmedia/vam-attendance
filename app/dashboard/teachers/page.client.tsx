@@ -49,6 +49,7 @@ export default function TeachersPage() {
   const [openTeacherModal, setOpenTeacherModal] = React.useState(false);
   const [newTeacherName, setNewTeacherName] = React.useState("");
   const [newTeacherEmail, setNewTeacherEmail] = React.useState("");
+  const [newTeacherPassword, setNewTeacherPassword] = React.useState("");
   const [teacherSaving, setTeacherSaving] = React.useState(false);
   const [teacherError, setTeacherError] = React.useState<string | null>(null);
   const [openEditTeacher, setOpenEditTeacher] = React.useState(false);
@@ -475,6 +476,13 @@ export default function TeachersPage() {
                 onChange={(e) => setNewTeacherEmail(e.target.value)}
                 className="h-9"
               />
+              <Input
+                type="password"
+                placeholder="Password (min 6 chars)"
+                value={newTeacherPassword}
+                onChange={(e) => setNewTeacherPassword(e.target.value)}
+                className="h-9"
+              />
               {teacherError && (
                 <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {teacherError}
@@ -486,7 +494,12 @@ export default function TeachersPage() {
                 Cancel
               </Button>
               <Button
-                disabled={teacherSaving || !newTeacherName.trim()}
+                disabled={
+                  teacherSaving ||
+                  !newTeacherName.trim() ||
+                  !newTeacherEmail.trim() ||
+                  newTeacherPassword.trim().length < 6
+                }
                 onClick={async () => {
                   try {
                     setTeacherSaving(true);
@@ -496,12 +509,14 @@ export default function TeachersPage() {
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
                         name: newTeacherName.trim(),
-                        email: newTeacherEmail.trim() || null,
+                        email: newTeacherEmail.trim(),
+                        password: newTeacherPassword.trim(),
                       }),
                     });
                     if (!res.ok) throw new Error(await res.text());
                     setNewTeacherName("");
                     setNewTeacherEmail("");
+                    setNewTeacherPassword("");
                     setOpenTeacherModal(false);
                     const tRes = await fetch("/api/teachers", { cache: "no-store" });
                     if (tRes.ok) setTeachers((await tRes.json()) as Teacher[]);
