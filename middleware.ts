@@ -6,6 +6,12 @@ const protectedRoutes = [
   "/dashboard/attendance",
   "/dashboard/profile",
   "/dashboard/settings",
+  "/dashboard/teacher",
+  "/dashboard/students",
+  "/dashboard/teachers",
+  "/dashboard/courses",
+  "/dashboard/sessions",
+  "/dashboard/enrollments",
 ];
 
 const authRoutes = ["/login", "/signup"];
@@ -41,6 +47,11 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+  const role =
+    (user?.app_metadata as any)?.role ||
+    (user?.user_metadata as any)?.role ||
+    ((user?.app_metadata as any)?.roles || [])[0] ||
+    null;
 
   if (isProtected(pathname) && !user) {
     const loginUrl = new URL("/login", request.url);
@@ -49,6 +60,10 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isAuthPage(pathname) && user) {
+    // If teacher, send to teacher dashboard
+    if (role === "teacher") {
+      return NextResponse.redirect(new URL("/dashboard/teacher", request.url));
+    }
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
@@ -74,6 +89,11 @@ export async function middleware(request: NextRequest) {
         maxAge: 60 * 60 * 24 * 30,
       });
     }
+  }
+
+  // Restrict teachers to their dashboard only
+  if (role === "teacher" && pathname.startsWith("/dashboard") && !pathname.startsWith("/dashboard/teacher")) {
+    return NextResponse.redirect(new URL("/dashboard/teacher", request.url));
   }
 
   return response;

@@ -55,8 +55,18 @@ export default function LoginPage() {
         return;
       }
 
-      // Redirect to dashboard on success
-      router.push("/dashboard");
+      const role =
+        data.user?.app_metadata?.role ||
+        data.user?.user_metadata?.role ||
+        data.user?.app_metadata?.roles?.[0] ||
+        "";
+
+      // Redirect to teacher dashboard if teacher role, otherwise main dashboard
+      if (role === "teacher") {
+        router.push("/dashboard/teacher");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err) {
       setError("An error occurred. Please try again.");
       setLoading(false);
